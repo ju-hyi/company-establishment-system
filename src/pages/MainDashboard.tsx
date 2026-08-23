@@ -12,7 +12,7 @@ import { useSchedules } from "../hooks/useSchedules";
 interface MainDashboardProps {
   userId: string;
   name: string;
-  email: string;
+  username: string;
   level: number;
   onSignOut: () => void;
 }
@@ -20,7 +20,7 @@ interface MainDashboardProps {
 export default function MainDashboard({
   userId,
   name,
-  email,
+  username,
   level,
   onSignOut,
 }: MainDashboardProps) {
@@ -35,7 +35,7 @@ export default function MainDashboard({
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Header name={name} email={email} level={level} onSignOut={onSignOut} />
+      <Header name={name} username={username} level={level} onSignOut={onSignOut} />
 
       <div className="flex w-full pt-16">
         <LeftSidebar

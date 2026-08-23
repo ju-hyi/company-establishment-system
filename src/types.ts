@@ -5,6 +5,9 @@ export type ScheduleCategory = "work" | "personal" | "study" | "exercise" | "etc
 
 export interface Profile {
   id: string;
+  /** 로그인 아이디 */
+  username: string | null;
+  /** Supabase Auth 내부 식별자. 화면에 노출하지 않는다. */
   email: string;
   name: string;
   level: number;

@@ -3,12 +3,12 @@ import { LogOut, Home, Calendar, BarChart3, CheckSquare, Menu, ChevronDown } fro
 
 interface HeaderProps {
   name: string;
-  email: string;
+  username: string;
   level: number;
   onSignOut: () => void;
 }
 
-export default function Header({ name, email, level, onSignOut }: HeaderProps) {
+export default function Header({ name, username, level, onSignOut }: HeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -67,7 +67,7 @@ export default function Header({ name, email, level, onSignOut }: HeaderProps) {
               <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-56">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-semibold text-gray-900">{name}</p>
-                  <p className="text-xs text-gray-500 mt-1">{email}</p>
+                  <p className="text-xs text-gray-500 mt-1">@{username}</p>
                 </div>
                 <button
                   onClick={onSignOut}

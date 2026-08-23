@@ -17,7 +17,7 @@ Supabase에 실제 기록으로 저장된다.
 | 업무 | 추가 / 시작 / 완료 / 되돌리기 / 삭제, 업무별 타이머, 실제 소요시간 저장 |
 | 개인 활동 | 공부·운동·휴식·개인일 시작/종료, 활동별 시간 기록 |
 | 통계 | 주간 근무시간, 업무 완료율, 공부·운동 시간 (원본 기록에서 계산) |
-| 인증 | Supabase Auth 이메일 로그인 / 회원가입 / 세션 유지 |
+| 인증 | 아이디 + 비밀번호 로그인 / 회원가입 / 세션 유지 (이메일·인증메일 없음) |
 
 ---
 
@@ -56,14 +56,15 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
 ## Supabase 설정
 
 1. Supabase에서 새 프로젝트 생성 (Region: Northeast Asia — Seoul)
-2. **SQL Editor**에서 [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) 실행
+2. **SQL Editor**에서 [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) →
+   [`supabase/migrations/0002_username_auth.sql`](supabase/migrations/0002_username_auth.sql) 순서로 실행
 3. **Settings → API Keys**의 Publishable key를 `.env.local`에 등록
 
 ### DB 구조
 
 | 테이블 | 용도 | 주요 컬럼 |
 |---|---|---|
-| `profiles` | 사용자 프로필 | `id`(auth.users FK), `email`, `name`, `level` |
+| `profiles` | 사용자 프로필 | `id`(auth.users FK), `username`(UNIQUE), `name`, `level` |
 | `work_sessions` | 출퇴근 | `work_date`, `check_in_at`, `check_out_at`, `duration_seconds` |
 | `tasks` | 업무 | `title`, `status`, `priority`, `started_at`, `completed_at`, `duration_seconds` |
 | `activities` | 개인 활동 | `type`(study/exercise/break/personal), `started_at`, `ended_at`, `duration_seconds` |
@@ -74,6 +75,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
 - 통계는 **원본 기록에서 계산**한다. 집계 전용 테이블을 두지 않아 중복 데이터가 생기지 않는다.
 - 시각은 `timestamptz`, 날짜 구분은 `Asia/Seoul` 기준 `date` 컬럼으로 저장한다.
 - 회원가입 시 `handle_new_user()` 트리거가 `profiles` 행을 자동 생성한다.
+- 로그인은 아이디만 입력받는다. Supabase Auth가 요구하는 내부 식별자는 `src/lib/auth.ts`
+  안에서만 만들어 쓰고 화면에 노출하지 않으며, 기존 계정은 `auth_email_for_username()`
+  으로 매핑해 `auth.users.id`(= 모든 데이터의 `user_id`)를 그대로 유지한다.
 - 하루에 진행 중인 근무 세션은 부분 유니크 인덱스로 하나만 허용한다.
 
 ### RLS
@@ -102,11 +106,11 @@ src/
 ├── pages/          LoginPage, MainDashboard
 ├── hooks/          useAuth, useTasks, useWorkSession, useActivities, useStats
 ├── services/       tasks, workSessions, activities  (Supabase 접근 계층)
-├── lib/            supabase.ts (클라이언트)
+├── lib/            supabase.ts (클라이언트), auth.ts (아이디 인증)
 ├── utils/          helpers.ts (날짜·시간 포맷)
 └── types.ts        DB 스키마와 1:1 대응하는 타입
 supabase/
-└── migrations/     0001_init.sql
+└── migrations/     0001_init.sql, 0002_username_auth.sql
 ```
 
 데이터 흐름: **UI → hooks → services → Supabase → PostgreSQL(RLS)**
