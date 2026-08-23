@@ -44,7 +44,9 @@ export function useAuth() {
   }, [session?.user.id]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // scope: "global" 로 서버의 refresh token 까지 폐기해 세션이 되살아나지 않게 한다.
+    // (이미 발급된 access token 은 JWT 특성상 만료 시각까지는 유효하다.)
+    await supabase.auth.signOut({ scope: "global" });
   };
 
   return { session, user: session?.user ?? null, profile, loading, signOut };
