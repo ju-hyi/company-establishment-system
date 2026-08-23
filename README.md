@@ -121,6 +121,17 @@ supabase/
 - Vercel 환경변수에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`를
   Production / Preview / Development 모두 등록
 
+### 자동 배포
+
+`main` 브랜치에 push하면 Vercel이 자동으로 Production 배포를 생성한다.
+
+```
+git push origin main   →   Vercel Production 배포
+```
+
+Production Branch는 `main`으로 설정되어 있으며, 수동 배포가 필요한 경우에만
+`vercel deploy --prod`를 사용한다.
+
 ---
 
 ## 향후 개선사항
