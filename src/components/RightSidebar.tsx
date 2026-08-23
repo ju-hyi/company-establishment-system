@@ -1,59 +1,37 @@
-import { useState, useEffect } from "react";
-import { formatDate, formatTime } from "../utils/helpers";
-import { Plus, Clock, FileText, Timer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Plus } from "lucide-react";
+import { formatDate, formatTime, formatDuration } from "../utils/helpers";
 
-export default function RightSidebar() {
+interface RightSidebarProps {
+  isCheckedIn: boolean;
+  checkInAt: string | null;
+  elapsedSeconds: number;
+  onAddTask: (title: string) => void;
+}
+
+export default function RightSidebar({
+  isCheckedIn,
+  checkInAt,
+  elapsedSeconds,
+  onAddTask,
+}: RightSidebarProps) {
   const [now, setNow] = useState(new Date());
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-
+    const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const schedules = [
-    {
-      id: 1,
-      time: "10:00",
-      title: "팀 주간 회의",
-      person: "회의실 A",
-      color: "bg-pink-50 text-pink-600",
-    },
-    {
-      id: 2,
-      time: "11:00",
-      title: "AA 방송 확인",
-      person: "진행중",
-      color: "bg-yellow-50 text-yellow-600",
-    },
-    {
-      id: 3,
-      time: "14:00",
-      title: "입고 현황 점검",
-      person: "창고 / ERP 점검",
-      color: "bg-blue-50 text-blue-600",
-    },
-    {
-      id: 4,
-      time: "16:00",
-      title: "보고서 리뷰",
-      person: "분무업 보고",
-      color: "bg-green-50 text-green-600",
-    },
-  ];
-
-  const workingTime = {
-    total: "03:21:16",
-    start: "08:27",
-    end: "--:--",
+  const submit = () => {
+    if (!draft.trim()) return;
+    onAddTask(draft);
+    setDraft("");
   };
 
   return (
     <aside className="w-72 bg-white border-l border-gray-200 overflow-y-auto">
       <div className="p-6 space-y-6">
-        {/* Date & Time */}
         <div>
           <div className="text-sm text-gray-500 mb-1">{formatDate(now)}</div>
           <div className="flex items-baseline gap-2">
@@ -66,35 +44,29 @@ export default function RightSidebar() {
             <span className="text-lg font-medium text-gray-500">
               {now.getHours() < 12 ? "AM" : "PM"}
             </span>
-            <span className="text-xl ml-auto">☀️</span>
           </div>
-          <p className="text-sm text-gray-600 mt-2">18°C 맑음</p>
         </div>
 
-        {/* Today's Schedule */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-900">오늘의 일정</h3>
-            <button className="text-blue-600 text-sm font-medium hover:text-blue-700">
-              +
+          <h3 className="font-bold text-gray-900 mb-3">업무 추가</h3>
+          <div className="flex gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="할 일을 입력하세요"
+              className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <button
+              onClick={submit}
+              className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+              aria-label="업무 추가"
+            >
+              <Plus size={18} />
             </button>
           </div>
-
-          <div className="space-y-2">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className={`${schedule.color} p-3 rounded-lg`}
-              >
-                <p className="font-semibold text-sm">{schedule.time}</p>
-                <p className="text-sm font-medium">{schedule.title}</p>
-                <p className="text-xs mt-1 opacity-75">{schedule.person}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Working Time */}
         <div>
           <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
             <Clock size={18} />
@@ -102,44 +74,25 @@ export default function RightSidebar() {
           </h3>
           <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">총근무시간</span>
+              <span className="text-gray-600">출근 시간</span>
               <span className="font-semibold text-gray-900">
-                {workingTime.total}
+                {checkInAt ? formatTime(checkInAt) : "--:--"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">퇴근 시간</span>
-              <span className="font-semibold text-gray-900">
-                {workingTime.end}
+              <span className="text-gray-600">상태</span>
+              <span
+                className={`font-semibold ${isCheckedIn ? "text-green-600" : "text-gray-500"}`}
+              >
+                {isCheckedIn ? "근무 중" : "퇴근"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">근무 시간</span>
-              <span className="font-semibold text-red-600">03:21:16</span>
+              <span className="text-gray-600">경과 시간</span>
+              <span className="font-semibold text-blue-600 font-mono">
+                {formatDuration(elapsedSeconds)}
+              </span>
             </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h3 className="font-bold text-gray-900 mb-3">바로가기</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <button className="flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border border-blue-200">
-              <Plus size={24} className="text-blue-600" />
-              <span className="text-xs font-medium text-gray-700">업무 추가</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-lg border border-purple-200">
-              <FileText size={24} className="text-purple-600" />
-              <span className="text-xs font-medium text-gray-700">메모</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border border-green-200">
-              <Timer size={24} className="text-green-600" />
-              <span className="text-xs font-medium text-gray-700">타이머</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-200 rounded-lg border border-orange-200">
-              <Plus size={24} className="text-orange-600" />
-              <span className="text-xs font-medium text-gray-700">일정 추가</span>
-            </button>
           </div>
         </div>
       </div>

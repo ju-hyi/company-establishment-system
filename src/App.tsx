@@ -1,15 +1,30 @@
+import { useAuth } from "./hooks/useAuth";
+import LoginPage from "./pages/LoginPage";
 import MainDashboard from "./pages/MainDashboard";
-import type { User } from "./types";
 
 export default function App() {
-  const mockUser: User = {
-    id: "user-123",
-    email: "user@example.com",
-    name: "김주희",
-    level: 12,
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=kimjuhee",
-    created_at: new Date().toISOString(),
-  };
+  const { user, profile, loading, signOut } = useAuth();
 
-  return <MainDashboard user={mockUser} />;
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-blue-50">
+        <div className="text-center">
+          <div className="text-5xl mb-3 animate-bounce">🏢</div>
+          <p className="text-gray-600 font-semibold">불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <LoginPage />;
+
+  return (
+    <MainDashboard
+      userId={user.id}
+      name={profile?.name ?? user.email?.split("@")[0] ?? "사용자"}
+      email={user.email ?? ""}
+      level={profile?.level ?? 1}
+      onSignOut={signOut}
+    />
+  );
 }
