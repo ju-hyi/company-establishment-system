@@ -7,6 +7,7 @@ import { useTasks } from "../hooks/useTasks";
 import { useWorkSession } from "../hooks/useWorkSession";
 import { useActivities } from "../hooks/useActivities";
 import { useStats } from "../hooks/useStats";
+import { useSchedules } from "../hooks/useSchedules";
 
 interface MainDashboardProps {
   userId: string;
@@ -30,6 +31,7 @@ export default function MainDashboard({
   const work = useWorkSession(userId);
   const activities = useActivities(userId);
   const { stats } = useStats(userId, statsKey);
+  const schedules = useSchedules(userId);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -63,6 +65,9 @@ export default function MainDashboard({
             await tasks.addTask(title);
             refreshStats();
           }}
+          schedules={schedules.schedules}
+          onAddSchedule={schedules.addSchedule}
+          onRemoveSchedule={schedules.removeSchedule}
         />
       </div>
     </div>
