@@ -23,7 +23,7 @@ export default function LoginPage() {
     if (m.includes("email rate limit") || m.includes("rate limit"))
       return "가입 요청이 일시적으로 제한되었습니다. Supabase Auth의 'Confirm email' 설정이 꺼져 있는지 확인해주세요.";
     if (m.includes("invalid login credentials"))
-      return "아이디 또는 비밀번호가 올바르지 않습니다.";
+      return "아이디 또는 비밀번호가 올바르지 않습니다. 아직 가입하지 않으셨다면 아래 '회원가입'을 눌러주세요.";
     if (m.includes("already registered") || m.includes("already been registered"))
       return "이미 등록된 아이디입니다. 로그인해주세요.";
     if (m.includes("password should be at least"))
@@ -41,12 +41,16 @@ export default function LoginPage() {
     setNotice("");
     setLoading(true);
 
+    // 가입과 로그인이 항상 같은 값을 보내도록 한 곳에서 정규화한다.
+    // Supabase는 이메일을 소문자로 저장하므로 대소문자 차이로 로그인이 실패하지 않게 맞춘다.
+    const identifier = loginId.trim().toLowerCase();
+
     try {
       if (isSignUp) {
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: loginId.trim(),
+          email: identifier,
           password,
-          options: { data: { name: name.trim() || loginId.split("@")[0] } },
+          options: { data: { name: name.trim() || identifier.split("@")[0] } },
         });
         if (signUpError) throw signUpError;
 
@@ -55,13 +59,13 @@ export default function LoginPage() {
 
         // 세션이 없으면 곧바로 로그인을 시도해 가입 직후 진입을 보장한다.
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: loginId.trim(),
+          email: identifier,
           password,
         });
         if (signInError) throw signInError;
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: loginId.trim(),
+          email: identifier,
           password,
         });
         if (signInError) throw signInError;
