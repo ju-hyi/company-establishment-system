@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import OfficeScene from "./OfficeScene";
 import { formatDuration, formatTime } from "../utils/helpers";
 import type { ActivityType, CharacterState } from "../types";
 import type { useTasks } from "../hooks/useTasks";
@@ -26,33 +27,14 @@ const ACTIVITY_OPTIONS: {
   { id: "personal", name: "개인일", icon: "🧹", color: "bg-pink-100 border-pink-400" },
 ];
 
-const LOCATION_LABEL: Record<CharacterState["location"], string> = {
-  entrance: "🚪 출입구",
-  desk: "🪑 내 자리",
-  meeting: "🤝 회의실",
-  break_room: "☕ 휴게실",
-  storage: "📚 자료실",
-  outside: "🏠 퇴근",
-};
-
-const ACTIVITY_EMOJI: Record<CharacterState["activity"], string> = {
-  idle: "😊",
-  walking: "🚶",
-  working: "💼",
-  studying: "📚",
-  exercising: "💪",
-  resting: "☕",
-  leaving: "👋",
-};
-
 const ACTIVITY_SCENE: Record<
   ActivityType,
-  { location: CharacterState["location"]; activity: CharacterState["activity"]; pos: { x: number; y: number }; message: string }
+  { location: CharacterState["location"]; activity: CharacterState["activity"]; message: string }
 > = {
-  study: { location: "storage", activity: "studying", pos: { x: 68, y: 62 }, message: "📚 공부 중이에요!" },
-  exercise: { location: "break_room", activity: "exercising", pos: { x: 28, y: 62 }, message: "🏃 운동 중입니다!" },
-  break: { location: "break_room", activity: "resting", pos: { x: 28, y: 62 }, message: "☕ 잠깐 쉬어갈게요~" },
-  personal: { location: "desk", activity: "idle", pos: { x: 50, y: 30 }, message: "🧹 개인일을 처리 중입니다." },
+  study: { location: "storage", activity: "studying", message: "📚 공부 중이에요!" },
+  exercise: { location: "break_room", activity: "exercising", message: "🏃 운동 중입니다!" },
+  break: { location: "break_room", activity: "resting", message: "☕ 잠깐 쉬어갈게요~" },
+  personal: { location: "desk", activity: "working", message: "🧹 개인일을 처리 중입니다." },
 };
 
 export default function MainContent({
@@ -63,17 +45,22 @@ export default function MainContent({
   onDataChange,
 }: MainContentProps) {
   const [now, setNow] = useState(new Date());
+  // 퇴근 직후 잠깐은 인사하며 나가는 모습을 보여준다.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimer = useRef<number | undefined>(undefined);
   const [character, setCharacter] = useState<CharacterState>({
     location: "entrance",
     activity: "idle",
     message: "안녕하세요! 오늘도 화이팅! 💪",
     messageEndTime: Date.now() + 5000,
   });
-  const [characterPos, setCharacterPos] = useState({ x: 18, y: 30 });
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.clearTimeout(leaveTimer.current);
+    };
   }, []);
 
   // 새로고침 후에도 서버 상태에 맞춰 캐릭터를 복구한다.
@@ -83,7 +70,6 @@ export default function MainContent({
     if (activities.activity) {
       const scene = ACTIVITY_SCENE[activities.activity.type];
       setCharacter((prev) => ({ ...scene, messageEndTime: prev.messageEndTime }));
-      setCharacterPos(scene.pos);
       return;
     }
 
@@ -94,29 +80,27 @@ export default function MainContent({
         message: "이 업무부터 처리해볼게요! 💪",
         messageEndTime: prev.messageEndTime,
       }));
-      setCharacterPos({ x: 80, y: 30 });
       return;
     }
 
     if (work.isCheckedIn) {
       setCharacter((prev) => ({
         location: "desk",
-        activity: "idle",
+        activity: "working",
         message: prev.message,
         messageEndTime: prev.messageEndTime,
       }));
-      setCharacterPos({ x: 50, y: 30 });
       return;
     }
 
     setCharacter((prev) => ({
       location: "entrance",
-      activity: "idle",
+      activity: leaving ? "leaving" : "idle",
       message: prev.message,
       messageEndTime: prev.messageEndTime,
     }));
-    setCharacterPos({ x: 18, y: 30 });
   }, [
+    leaving,
     work.loading,
     work.isCheckedIn,
     activities.loading,
@@ -137,13 +121,10 @@ export default function MainContent({
   const handleCheckOut = async () => {
     if (activities.activity) await activities.end();
     await work.checkOut();
-    setCharacter({
-      location: "outside",
-      activity: "leaving",
-      message: "오늘 하루 수고했어요! 내일 봐요! 👋",
-      messageEndTime: Date.now() + 4000,
-    });
-    setCharacterPos({ x: 18, y: 30 });
+    setLeaving(true);
+    window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(() => setLeaving(false), 4200);
+    say("오늘 하루 수고했어요! 내일 봐요! 👋");
     onDataChange();
   };
 
@@ -194,50 +175,12 @@ export default function MainContent({
           </div>
         </div>
 
-        {/* Office Canvas */}
-        <div className="h-80 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-3xl shadow-lg relative overflow-hidden border-4 border-amber-300">
-          <div className="absolute top-6 left-[10%] -translate-x-1/2 text-center">
-            <div className="text-xs font-bold text-gray-600 mb-1">🚪 출입구</div>
-            <div className="w-20 h-16 bg-yellow-200 rounded-xl opacity-40 border-2 border-yellow-400" />
-          </div>
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 text-center">
-            <div className="text-xs font-bold text-gray-600 mb-1">🪑 내 자리</div>
-            <div className="w-24 h-16 bg-blue-200 rounded-xl opacity-40 border-2 border-blue-400" />
-          </div>
-          <div className="absolute top-6 right-[6%] text-center">
-            <div className="text-xs font-bold text-gray-600 mb-1">🤝 회의실</div>
-            <div className="w-20 h-16 bg-pink-200 rounded-xl opacity-40 border-2 border-pink-400" />
-          </div>
-          <div className="absolute bottom-6 left-[24%] -translate-x-1/2 text-center">
-            <div className="text-xs font-bold text-gray-600 mb-1">☕ 휴게실</div>
-            <div className="w-24 h-16 bg-green-200 rounded-xl opacity-40 border-2 border-green-400" />
-          </div>
-          <div className="absolute bottom-6 right-[24%] text-center">
-            <div className="text-xs font-bold text-gray-600 mb-1">📚 자료실</div>
-            <div className="w-20 h-16 bg-purple-200 rounded-xl opacity-40 border-2 border-purple-400" />
-          </div>
-
-          <div
-            className="absolute flex flex-col items-center transition-all duration-700 ease-in-out"
-            style={{
-              left: `${characterPos.x}%`,
-              top: `${characterPos.y}%`,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {showBubble && (
-              <div className="mb-3 bg-white border-2 border-purple-300 rounded-3xl px-4 py-2 text-sm font-semibold text-gray-800 whitespace-nowrap shadow-lg">
-                {character.message}
-              </div>
-            )}
-            <div className="w-20 h-20 bg-gradient-to-br from-rose-300 to-pink-300 rounded-full flex items-center justify-center text-5xl shadow-xl border-4 border-white">
-              {ACTIVITY_EMOJI[character.activity]}
-            </div>
-            <p className="mt-2 text-xs font-bold text-gray-700 bg-white px-3 py-1 rounded-full shadow">
-              {LOCATION_LABEL[character.location]}
-            </p>
-          </div>
-        </div>
+        <OfficeScene
+          location={character.location}
+          activity={character.activity}
+          message={character.message}
+          showBubble={showBubble}
+        />
 
         {/* Check in / out */}
         <div className="mt-6 grid grid-cols-2 gap-4">

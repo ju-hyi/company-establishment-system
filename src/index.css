@@ -27,3 +27,84 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* ─────────────────────────────────────────────
+   LIVE OFFICE 캐릭터 애니메이션
+   관절(ch-j)은 SVG 요소 자기 자신의 위쪽 가운데를 축으로 회전한다.
+   ───────────────────────────────────────────── */
+.ch-j {
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.ch-self {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 몸 전체 */
+@keyframes ch-bob    { 0%, 100% { transform: translateY(0); }      50% { transform: translateY(-2.5px); } }
+@keyframes ch-idle   { 0%, 100% { transform: translateY(0); }      50% { transform: translateY(-1px); } }
+@keyframes ch-hop    { 0%, 100% { transform: translateY(0); }      50% { transform: translateY(-5px); } }
+@keyframes ch-sway   { 0%, 100% { transform: rotate(-1.8deg); }    50% { transform: rotate(1.8deg); } }
+
+.ch-anim-bob   { animation: ch-bob  0.62s ease-in-out infinite; }
+.ch-anim-idle  { animation: ch-idle 3.4s  ease-in-out infinite; }
+.ch-anim-hop   { animation: ch-hop  0.6s  ease-in-out infinite; }
+.ch-anim-sway  { animation: ch-sway 3.6s  ease-in-out infinite; }
+
+/* 걷기 — 팔다리가 번갈아 흔들린다 */
+@keyframes ch-leg-a  { 0%, 100% { transform: rotate(22deg); }  50% { transform: rotate(-22deg); } }
+@keyframes ch-leg-b  { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
+@keyframes ch-arm-a  { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+@keyframes ch-arm-b  { 0%, 100% { transform: rotate(16deg); }  50% { transform: rotate(-16deg); } }
+
+.ch-walk-leg-a { animation: ch-leg-a 0.62s ease-in-out infinite; }
+.ch-walk-leg-b { animation: ch-leg-b 0.62s ease-in-out infinite; }
+.ch-walk-arm-a { animation: ch-arm-a 0.62s ease-in-out infinite; }
+.ch-walk-arm-b { animation: ch-arm-b 0.62s ease-in-out infinite; }
+
+/* 타자 치기 */
+@keyframes ch-type-l { 0%, 100% { transform: rotate(38deg); }  50% { transform: rotate(46deg); } }
+@keyframes ch-type-r { 0%, 100% { transform: rotate(-46deg); } 50% { transform: rotate(-38deg); } }
+
+.ch-type-l { animation: ch-type-l 0.34s ease-in-out infinite; }
+.ch-type-r { animation: ch-type-r 0.34s ease-in-out infinite; }
+
+/* 손 흔들기 */
+@keyframes ch-wave { 0%, 100% { transform: rotate(-148deg); } 50% { transform: rotate(-118deg); } }
+.ch-wave { animation: ch-wave 0.5s ease-in-out infinite; }
+
+/* 운동 — 팔벌려뛰기 */
+@keyframes ch-jack-arm-a { 0%, 100% { transform: rotate(-8deg); }  50% { transform: rotate(-155deg); } }
+@keyframes ch-jack-arm-b { 0%, 100% { transform: rotate(8deg); }   50% { transform: rotate(155deg); } }
+@keyframes ch-jack-leg-a { 0%, 100% { transform: rotate(0deg); }   50% { transform: rotate(-20deg); } }
+@keyframes ch-jack-leg-b { 0%, 100% { transform: rotate(0deg); }   50% { transform: rotate(20deg); } }
+
+.ch-jack-arm-a { animation: ch-jack-arm-a 0.6s ease-in-out infinite; }
+.ch-jack-arm-b { animation: ch-jack-arm-b 0.6s ease-in-out infinite; }
+.ch-jack-leg-a { animation: ch-jack-leg-a 0.6s ease-in-out infinite; }
+.ch-jack-leg-b { animation: ch-jack-leg-b 0.6s ease-in-out infinite; }
+
+/* 눈 깜빡임 */
+@keyframes ch-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+.ch-blink { animation: ch-blink 4.2s ease-in-out infinite; }
+
+/* 커피 김 */
+@keyframes ch-steam {
+  0%   { opacity: 0;   transform: translateY(0) scale(0.7); }
+  35%  { opacity: 0.6; }
+  100% { opacity: 0;   transform: translateY(-11px) scale(1.25); }
+}
+.ch-steam { animation: ch-steam 2.1s ease-out infinite; }
+
+/* 움직임을 불편해하는 사용자에게는 애니메이션을 멈춘다 */
+@media (prefers-reduced-motion: reduce) {
+  .ch-anim-bob, .ch-anim-idle, .ch-anim-hop, .ch-anim-sway,
+  .ch-walk-leg-a, .ch-walk-leg-b, .ch-walk-arm-a, .ch-walk-arm-b,
+  .ch-type-l, .ch-type-r, .ch-wave,
+  .ch-jack-arm-a, .ch-jack-arm-b, .ch-jack-leg-a, .ch-jack-leg-b,
+  .ch-blink, .ch-steam {
+    animation: none;
+  }
+}
