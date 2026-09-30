@@ -68,7 +68,7 @@ const look = (hair: string, cloth: string, sleeve: string, pants: string): Chara
   shoe: "#5a6480",
 });
 
-const ME_LOOK = look("#6b4a38", "#f286b0", "#e275a1", "#6f7f9f");
+export const ME_LOOK = look("#6b4a38", "#f286b0", "#e275a1", "#6f7f9f");
 
 interface Staff {
   id: string;

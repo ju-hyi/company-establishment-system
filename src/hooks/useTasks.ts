@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as taskService from "../services/tasks";
 import { secondsSince, todayKey } from "../utils/helpers";
-import type { Task } from "../types";
+import type { Task, TaskPriority, TaskStatus } from "../types";
 
 export function useTasks(userId: string | null) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -47,11 +47,18 @@ export function useTasks(userId: string | null) {
     });
 
   const addTask = useCallback(
-    async (title: string) => {
+    async (title: string, priority?: TaskPriority) => {
       if (!userId || !title.trim()) return;
-      upsert(await taskService.createTask(userId, title.trim()));
+      upsert(await taskService.createTask(userId, title.trim(), priority));
     },
     [userId]
+  );
+
+  const updateTask = useCallback(
+    async (taskId: string, patch: Parameters<typeof taskService.updateTask>[1]) => {
+      upsert(await taskService.updateTask(taskId, patch));
+    },
+    []
   );
 
   const startTask = useCallback(async (taskId: string) => {
@@ -71,6 +78,19 @@ export function useTasks(userId: string | null) {
     upsert(await taskService.reopenTask(taskId));
   }, []);
 
+  /** 상태 변경 — 시작/완료/되돌리기는 시간 기록이 따라가도록 전용 서비스를 쓴다. */
+  const setStatus = useCallback(
+    async (taskId: string, status: TaskStatus) => {
+      const target = tasks.find((t) => t.id === taskId);
+      if (!target || target.status === status) return;
+      if (status === "in_progress") upsert(await taskService.startTask(taskId));
+      else if (status === "completed") upsert(await taskService.completeTask(target));
+      else if (status === "pending") upsert(await taskService.reopenTask(taskId));
+      else upsert(await taskService.updateTask(taskId, { status }));
+    },
+    [tasks]
+  );
+
   const removeTask = useCallback(async (taskId: string) => {
     await taskService.deleteTask(taskId);
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -86,6 +106,8 @@ export function useTasks(userId: string | null) {
     completedCount,
     totalCount: tasks.length,
     addTask,
+    updateTask,
+    setStatus,
     startTask,
     completeTask,
     reopenTask,

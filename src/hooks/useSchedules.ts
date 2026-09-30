@@ -7,6 +7,8 @@ export function useSchedules(userId: string | null, date: string = todayKey()) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -23,7 +25,10 @@ export function useSchedules(userId: string | null, date: string = todayKey()) {
     return () => {
       cancelled = true;
     };
-  }, [userId, date]);
+  }, [userId, date, reloadKey]);
+
+  /** 캘린더 페이지에서 일정을 바꾼 뒤 오늘 일정을 다시 읽는다. */
+  const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
   const addSchedule = useCallback(
     async (title: string, startTime?: string) => {
@@ -50,5 +55,5 @@ export function useSchedules(userId: string | null, date: string = todayKey()) {
     setSchedules((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
-  return { schedules, loading, addSchedule, renameSchedule, removeSchedule };
+  return { schedules, loading, reload, addSchedule, renameSchedule, removeSchedule };
 }

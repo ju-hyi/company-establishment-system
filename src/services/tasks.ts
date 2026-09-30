@@ -86,6 +86,21 @@ export async function reopenTask(taskId: string): Promise<Task> {
   return data;
 }
 
+export async function updateTask(
+  taskId: string,
+  patch: Partial<Pick<Task, "title" | "description" | "priority" | "status">>
+): Promise<Task> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update(patch)
+    .eq("id", taskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteTask(taskId: string): Promise<void> {
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
   if (error) throw error;

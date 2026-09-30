@@ -16,6 +16,24 @@ export async function listSchedulesByDate(
   return data ?? [];
 }
 
+export async function listSchedulesInRange(
+  userId: string,
+  fromDate: string,
+  toDate: string
+): Promise<Schedule[]> {
+  const { data, error } = await supabase
+    .from("schedules")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("schedule_date", fromDate)
+    .lte("schedule_date", toDate)
+    .order("schedule_date", { ascending: true })
+    .order("start_time", { ascending: true, nullsFirst: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function createSchedule(
   userId: string,
   input: {
@@ -47,7 +65,9 @@ export async function createSchedule(
 
 export async function updateSchedule(
   scheduleId: string,
-  patch: Partial<Pick<Schedule, "title" | "start_time" | "end_time" | "category" | "memo">>
+  patch: Partial<
+    Pick<Schedule, "title" | "schedule_date" | "start_time" | "end_time" | "category" | "memo">
+  >
 ): Promise<Schedule> {
   const { data, error } = await supabase
     .from("schedules")
