@@ -52,7 +52,7 @@ const ACTIVITY_SCENE: Record<ActivityType, Scene> = {
   study: { location: "storage", activity: "studying" },
   exercise: { location: "break_room", activity: "exercising" },
   break: { location: "break_room", activity: "resting" },
-  personal: { location: "desk", activity: "working" },
+  personal: { location: "marketing", activity: "working" },
 };
 
 const ACTIVITY_OPTIONS: { id: ActivityType; icon: string }[] = [
@@ -67,6 +67,7 @@ const LOCATION_LABEL: Record<CharacterState["location"], string> = {
   break_room: "휴게실",
   storage: "공부·자기계발",
   desk: "회계팀 자리",
+  marketing: "마케팅팀 자리",
   entrance: "출입구",
   outside: "밖",
 };
@@ -235,6 +236,11 @@ export default function LiveOfficePage({
             tasks={tasks.tasks}
             activeTaskId={tasks.activeTask?.id ?? null}
             runningSeconds={tasks.runningSeconds}
+            onToggle={async (task) => {
+              // 완료 ↔ 예정 — 오늘 할 일 페이지의 체크와 같은 처리(완료 시각 · 소요시간 기록)
+              await tasks.setStatus(task.id, task.status === "completed" ? "pending" : "completed");
+              onDataChange();
+            }}
             onOpenTasks={() => onNavigate("tasks")}
           />
           </div>

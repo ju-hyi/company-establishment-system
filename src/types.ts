@@ -77,6 +77,7 @@ export interface Schedule {
 export type CharacterLocation =
   | "entrance"
   | "desk"
+  | "marketing"
   | "meeting"
   | "break_room"
   | "storage"

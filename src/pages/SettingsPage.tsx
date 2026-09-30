@@ -5,6 +5,7 @@ import type { useOfficeProfile } from "../hooks/useOfficeProfile";
 import OfficeCharacter from "../components/OfficeCharacter";
 import { ME_LOOK } from "../components/OfficeScene";
 import { lookFor, type Appearance } from "../components/appearance";
+import UserAdminCard from "../components/UserAdminCard";
 import { Card, CardTitle, PageHeader, inputClass } from "../components/ui";
 
 /**
@@ -17,6 +18,8 @@ interface SettingsPageProps {
   level: number;
   office: ReturnType<typeof useOfficeProfile>;
   appearance: Appearance;
+  userId: string;
+  onDataReset: () => void;
   onSignOut: () => void;
 }
 
@@ -94,6 +97,8 @@ export default function SettingsPage({
   level,
   office,
   appearance,
+  userId,
+  onDataReset,
   onSignOut,
 }: SettingsPageProps) {
   return (
@@ -132,6 +137,8 @@ export default function SettingsPage({
             <Row label="통계 범위" value="최근 7일" />
           </dl>
         </Card>
+
+        <UserAdminCard myUserId={userId} onMyDataCleared={onDataReset} />
 
         <Card>
           <CardTitle>로그아웃</CardTitle>

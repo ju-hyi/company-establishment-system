@@ -109,6 +109,8 @@ export default function MainDashboard({
             level={level}
             office={office}
             appearance={appearance}
+            userId={userId}
+            onDataReset={() => window.location.reload()}
             onSignOut={onSignOut}
           />
         )}

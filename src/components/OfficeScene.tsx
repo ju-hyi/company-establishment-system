@@ -118,6 +118,8 @@ const ZONE_POS: Record<CharacterLocation, { x: number; y: number }> = {
   break_room: { x: 790, y: 252 },
   storage: { x: 900, y: 252 },
   desk: { x: 1034, y: 430 },
+  // 마케팅팀의 비어 있는 세 번째 책상 (책상 x=416 → 자리 x=416+38, 다른 직원과 같은 규칙)
+  marketing: { x: 454, y: 430 },
   entrance: { x: 500, y: 702 },
   outside: { x: 500, y: 740 },
 };
