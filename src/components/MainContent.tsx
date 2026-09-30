@@ -152,7 +152,6 @@ export default function MainContent({
     onDataChange();
   };
 
-  const showBubble = character.messageEndTime !== undefined && character.messageEndTime > now.getTime();
   const completionRate =
     stats.totalTasks === 0 ? 0 : Math.round((stats.completedTasks / stats.totalTasks) * 100);
 
@@ -175,12 +174,7 @@ export default function MainContent({
           </div>
         </div>
 
-        <OfficeScene
-          location={character.location}
-          activity={character.activity}
-          message={character.message}
-          showBubble={showBubble}
-        />
+        <OfficeScene location={character.location} activity={character.activity} />
 
         {/* Check in / out */}
         <div className="mt-6 grid grid-cols-2 gap-4">

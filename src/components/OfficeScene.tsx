@@ -1,202 +1,261 @@
-import { useEffect, useRef, useState } from "react";
 import OfficeCharacter from "./OfficeCharacter";
+import type { CharacterLook, CharacterPose } from "./OfficeCharacter";
+import {
+  Bookshelf,
+  Boxes,
+  Chair,
+  Desk,
+  Door,
+  Mat,
+  MeetingTable,
+  Plant,
+  RoundTable,
+  Shelf,
+  Sofa,
+} from "./OfficeFurniture";
 import type { CharacterActivity, CharacterLocation } from "../types";
 
 /**
- * LIVE OFFICE 공간.
+ * LIVE OFFICE — ZEP / 게더타운 같은 2D 오피스 맵.
  *
- * 방과 가구를 그리고, 캐릭터를 현재 위치로 "걸어서" 이동시킨다.
- * 위치가 바뀌면 이동하는 동안에는 걷는 동작으로 바꿨다가 도착하면 원래 활동으로 돌아간다.
+ * 분홍 배경 위에 둥근 방 카드 7개를 놓고, 그 안에 책상·의자·노트북만 최소한으로 둔다.
+ * 사람은 도트 캐릭터로 작게(맵 높이의 9%) 배치하고 이름표를 단다.
+ * 맵이 주인공이고 사람은 맵의 일부다.
  */
 
-interface OfficeSceneProps {
-  location: CharacterLocation;
-  activity: CharacterActivity;
-  message: string;
-  showBubble: boolean;
+const W = 1200;
+const H = 780;
+
+const px = (x: number) => `${(x / W) * 100}%`;
+const py = (y: number) => `${(y / H) * 100}%`;
+const CHAR_H = py(64);
+
+const ROOM_FILL = "#fdfaf5";
+const ROOM_LINE = "#ecdccb";
+
+function Room({
+  x,
+  y,
+  w,
+  h,
+  name,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  name: string;
+}) {
+  const tagW = name.length * 13 + 22;
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={18} fill={ROOM_FILL} stroke={ROOM_LINE} strokeWidth={3} />
+      <rect x={x + 14} y={y + 12} width={tagW} height={26} rx={13} fill="#f6e7ee" />
+      <text x={x + 14 + tagW / 2} y={y + 30} textAnchor="middle" fontSize={14} fontWeight={700} fill="#8a6f7d">
+        {name}
+      </text>
+    </g>
+  );
 }
 
-/** 캐릭터의 발이 놓이는 지점 (컨테이너 대비 %) */
+/* ── 직원 ─────────────────────────────────────── */
+const look = (hair: string, cloth: string, sleeve: string, pants: string): CharacterLook => ({
+  hair,
+  skin: "#f7d2b4",
+  cloth,
+  sleeve,
+  pants,
+  shoe: "#5a6480",
+});
+
+const ME_LOOK = look("#6b4a38", "#f286b0", "#e275a1", "#6f7f9f");
+
+interface Staff {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  pose: CharacterPose;
+  facing: "left" | "right";
+  look: CharacterLook;
+}
+
+const STAFF: Staff[] = [
+  // 회의실 — 테이블에 둘러앉아 회의
+  { id: "m1", name: "이대리", x: 162, y: 132, pose: "sit", facing: "right", look: look("#4a3830", "#87aee0", "#749bcd", "#4f5d78") },
+  { id: "m2", name: "한주임", x: 240, y: 132, pose: "sit", facing: "right", look: look("#31292a", "#c0a2e0", "#ad8ed2", "#56617e") },
+  { id: "m3", name: "서대리", x: 318, y: 132, pose: "sit", facing: "left", look: look("#7c4b33", "#f0a098", "#e08c84", "#5d6a86") },
+
+  // 휴게실 — 소파에서 쉬는 사람, 서서 이야기하는 사람
+  { id: "b1", name: "유대리", x: 590, y: 152, pose: "sit", facing: "right", look: look("#6d4330", "#8fcfb8", "#7bbfa7", "#6a7896") },
+  { id: "b2", name: "김사원", x: 706, y: 240, pose: "stand", facing: "left", look: look("#463932", "#efc46f", "#e0b35a", "#5b6886") },
+
+  // 공부·자기계발 — 책상에서 공부
+  { id: "s1", name: "정과장", x: 1054, y: 162, pose: "sit", facing: "right", look: look("#8a5a3c", "#a8c9ea", "#93b8de", "#5f6b88") },
+
+  // 마케팅팀 — 노트북 업무 + 지나가는 사람
+  { id: "k1", name: "박사원", x: 122, y: 430, pose: "sit", facing: "right", look: look("#5d4030", "#9ccbe8", "#86bcdd", "#59668a") },
+  { id: "k2", name: "최주임", x: 288, y: 430, pose: "sit", facing: "right", look: look("#3f3630", "#a3dcae", "#8ecd9b", "#5b6886") },
+  { id: "k3", name: "오사원", x: 524, y: 500, pose: "walk", facing: "left", look: look("#4a3630", "#f0a5bd", "#e08fab", "#636f8d") },
+
+  // 회계팀 — 노트북 업무
+  { id: "a1", name: "강대리", x: 702, y: 430, pose: "sit", facing: "right", look: look("#3b3230", "#b9c6da", "#a4b3ca", "#525f7d") },
+  { id: "a2", name: "윤사원", x: 868, y: 430, pose: "sit", facing: "right", look: look("#5a4334", "#e8b48f", "#d9a079", "#586686") },
+
+  // 창고 — 박스 정리
+  { id: "w1", name: "한사원", x: 332, y: 722, pose: "carry", facing: "left", look: look("#42566e", "#cdb493", "#bca180", "#55627d") },
+
+  // 출입구 — 들어오는 사람
+  { id: "e1", name: "신입", x: 622, y: 702, pose: "walk", facing: "left", look: look("#3f352f", "#9fb8d8", "#8aa5c9", "#4f5c78") },
+  { id: "e2", name: "임차장", x: 1046, y: 700, pose: "stand", facing: "left", look: look("#4b3c33", "#d3a9dd", "#c294cf", "#535f7c") },
+];
+
+/** 내 캐릭터가 서는 자리 (스프라이트 아래쪽 기준) */
 const ZONE_POS: Record<CharacterLocation, { x: number; y: number }> = {
-  meeting: { x: 17, y: 48 },
-  break_room: { x: 50, y: 48 },
-  storage: { x: 83, y: 48 },
-  desk: { x: 50, y: 72 },
-  entrance: { x: 12, y: 76 },
-  outside: { x: 12, y: 82 },
+  meeting: { x: 408, y: 252 },
+  break_room: { x: 790, y: 252 },
+  storage: { x: 900, y: 252 },
+  desk: { x: 1034, y: 430 },
+  entrance: { x: 500, y: 702 },
+  outside: { x: 500, y: 740 },
 };
 
-const ZONE_NAME: Record<CharacterLocation, string> = {
-  meeting: "회의실",
-  break_room: "휴게실",
-  storage: "자료실",
-  desk: "내 자리",
-  entrance: "출입구",
-  outside: "퇴근",
+const POSE_BY_ACTIVITY: Record<CharacterActivity, CharacterPose> = {
+  idle: "stand",
+  walking: "walk",
+  working: "sit",
+  studying: "sit",
+  exercising: "stand",
+  resting: "sit",
+  leaving: "walk",
 };
 
-function RoomLabel({ children }: { children: React.ReactNode }) {
+function NameTag({ children, mine }: { children: React.ReactNode; mine?: boolean }) {
   return (
-    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-2.5 py-0.5 text-[11px] font-bold text-gray-600 shadow-sm ring-1 ring-black/5">
+    <span
+      className={`mt-0.5 block whitespace-nowrap rounded-full px-1.5 text-[8px] font-bold leading-[13px] ${
+        mine ? "bg-rose-400 text-white" : "bg-white/90 text-gray-500"
+      }`}
+    >
       {children}
     </span>
   );
 }
 
-function Plant({ className }: { className: string }) {
-  return (
-    <div className={`absolute flex flex-col items-center ${className}`}>
-      <div className="h-5 w-5 rounded-full bg-[#7fb083]" />
-      <div className="-mt-1 h-3.5 w-4 rounded-b-md bg-[#c98f6a]" />
-    </div>
-  );
+interface OfficeSceneProps {
+  location: CharacterLocation;
+  activity: CharacterActivity;
 }
 
-/** 사무실이 비어 보이지 않도록 두는 빈 자리 */
-function SideDesk({ className }: { className: string }) {
-  return (
-    <div className={`absolute ${className}`}>
-      <div className="h-2 w-full rounded-sm bg-[#e6cdaa] ring-1 ring-[#cbae87]" />
-      <div className="mx-auto -mt-3 h-3 w-5 rounded-[2px] bg-[#9aa8bd]" />
-      <div className="mx-auto mt-2 h-2.5 w-2.5 rounded-full bg-[#b9c3d4]" />
-    </div>
-  );
-}
-
-export default function OfficeScene({
-  location,
-  activity,
-  message,
-  showBubble,
-}: OfficeSceneProps) {
-  const posRef = useRef(ZONE_POS[location]);
-  const [pos, setPos] = useState(posRef.current);
-  const [walking, setWalking] = useState(false);
-  const [facing, setFacing] = useState<"left" | "right">("right");
-  const [durationMs, setDurationMs] = useState(900);
-
-  useEffect(() => {
-    const target = ZONE_POS[location];
-    const prev = posRef.current;
-    if (prev.x === target.x && prev.y === target.y) return;
-
-    // 거리에 비례해 걷는 시간을 정한다. (가까우면 빨리, 멀면 오래)
-    const distance = Math.hypot(target.x - prev.x, target.y - prev.y);
-    const ms = Math.min(2200, Math.max(550, Math.round(distance * 26)));
-
-    posRef.current = target;
-    setDurationMs(ms);
-    if (target.x !== prev.x) setFacing(target.x < prev.x ? "left" : "right");
-    setWalking(true);
-    setPos(target);
-
-    const timer = window.setTimeout(() => setWalking(false), ms);
-    return () => window.clearTimeout(timer);
-  }, [location]);
-
-  const shownActivity: CharacterActivity = walking
-    ? activity === "leaving"
-      ? "leaving"
-      : "walking"
-    : activity;
+export default function OfficeScene({ location, activity }: OfficeSceneProps) {
+  const me = ZONE_POS[location];
 
   return (
     <div
-      className="relative h-[380px] overflow-hidden rounded-3xl border-4 border-amber-200 shadow-lg"
-      style={{
-        background:
-          "repeating-linear-gradient(0deg,#f7ecdb 0 34px,#f4e7d3 34px 68px)," +
-          "repeating-linear-gradient(90deg,#f7ecdb 0 34px,#f4e7d3 34px 68px)",
-      }}
+      className="relative w-full overflow-hidden rounded-3xl shadow-lg"
+      style={{ aspectRatio: `${W} / ${H}` }}
     >
-      {/* ─── 위쪽 방 세 칸 ─── */}
-      {/* 회의실 */}
-      <div className="absolute left-[2.5%] top-[5%] h-[32%] w-[29%] rounded-xl border-2 border-[#c3d2e8] bg-[#e8eef7]">
-        <RoomLabel>🤝 {ZONE_NAME.meeting}</RoomLabel>
-        <div className="absolute left-1/2 top-2 h-3 w-[55%] -translate-x-1/2 rounded-sm bg-white ring-1 ring-[#c3d2e8]" />
-        <div className="absolute left-1/2 top-1/2 h-[26%] w-[58%] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-[#cbd9ec] ring-2 ring-[#aabfdc]" />
-        {["left-[18%] top-[42%]", "left-[18%] top-[64%]", "right-[18%] top-[42%]", "right-[18%] top-[64%]"].map(
-          (p) => (
-            <div key={p} className={`absolute ${p} h-2.5 w-2.5 rounded-full bg-[#8aa2c4]`} />
-          )
-        )}
-      </div>
+      {/* ───── 배경 · 방 · 가구 ───── */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full">
+        <defs>
+          <pattern id="bgDots" width="28" height="28" patternUnits="userSpaceOnUse">
+            <rect width="28" height="28" fill="#f7d7e2" />
+            <circle cx="7" cy="7" r="2" fill="#f2c7d6" />
+            <circle cx="21" cy="21" r="2" fill="#f2c7d6" />
+          </pattern>
+        </defs>
+        <rect width={W} height={H} fill="url(#bgDots)" />
 
-      {/* 휴게실 */}
-      <div className="absolute left-[35.5%] top-[5%] h-[32%] w-[29%] rounded-xl border-2 border-[#f4d3d9] bg-[#fdeef0]">
-        <RoomLabel>☕ {ZONE_NAME.break_room}</RoomLabel>
-        <div className="absolute left-[14%] top-[26%] h-[16%] w-[44%] rounded-t-lg bg-[#efa9b4]" />
-        <div className="absolute left-[14%] top-[40%] h-[22%] w-[44%] rounded-lg bg-[#f6bcc5] ring-2 ring-[#e79aa7]" />
-        <div className="absolute right-[16%] top-[46%] h-7 w-7 rounded-full bg-[#e8d5c0] ring-2 ring-[#d4bda4]" />
-        <Plant className="bottom-[8%] left-[10%]" />
-      </div>
+        {/* 방 7개 */}
+        <Room x={26} y={26} w={444} h={250} name="회의실" />
+        <Room x={486} y={26} w={342} h={250} name="휴게실" />
+        <Room x={844} y={26} w={330} h={250} name="공부·자기계발" />
+        <Room x={26} y={294} w={566} h={242} name="마케팅팀" />
+        <Room x={608} y={294} w={566} h={242} name="회계팀" />
+        <Room x={26} y={554} w={362} h={200} name="창고" />
+        <Room x={404} y={554} w={770} h={200} name="출입구" />
 
-      {/* 자료실 */}
-      <div className="absolute left-[68.5%] top-[5%] h-[32%] w-[29%] rounded-xl border-2 border-[#dcd0f0] bg-[#f1ecfa]">
-        <RoomLabel>📚 {ZONE_NAME.storage}</RoomLabel>
-        {["top-[26%]", "top-[54%]"].map((top) => (
-          <div
-            key={top}
-            className={`absolute ${top} left-1/2 flex h-[20%] w-[66%] -translate-x-1/2 items-end gap-[3px] rounded-sm bg-[#d8c7ae] px-1 pb-0.5 ring-2 ring-[#bfa98c]`}
-          >
-            {["#e88f8f", "#8fb7e8", "#efc97a", "#9ed8a6", "#c39ee0", "#e88f8f", "#8fb7e8"].map((c, i) => (
-              <div key={i} className="flex-1 rounded-[1px]" style={{ height: `${62 + (i % 3) * 13}%`, background: c }} />
-            ))}
-          </div>
+        {/* 회의실 */}
+        <Chair x={152} y={100} />
+        <Chair x={230} y={100} />
+        <Chair x={308} y={100} />
+        <MeetingTable x={110} y={128} w={260} h={68} />
+        <Chair x={172} y={200} />
+        <Chair x={288} y={200} />
+        <Plant x={64} y={248} />
+        <Plant x={432} y={248} />
+
+        {/* 휴게실 */}
+        <Sofa x={530} y={120} w={120} />
+        <RoundTable x={716} y={186} r={26} />
+        <Plant x={520} y={248} />
+        <Plant x={794} y={82} />
+
+        {/* 공부·자기계발 */}
+        <Bookshelf x={874} y={70} w={120} />
+        <Chair x={1041} y={126} />
+        <Desk x={1016} y={152} w={76} />
+        <Plant x={882} y={230} />
+        <Plant x={1140} y={248} />
+
+        {/* 마케팅팀 */}
+        {[84, 250, 416].map((dx) => (
+          <g key={`k${dx}`}>
+            <Chair x={dx + 25} y={392} />
+            <Desk x={dx} y={418} w={76} />
+          </g>
         ))}
-      </div>
+        <Plant x={56} y={500} />
+        <Plant x={560} y={340} />
 
-      {/* ─── 아래쪽 열린 공간 ─── */}
-      {/* 내 자리 */}
-      <div className="absolute left-[36%] top-[74%] h-[16%] w-[28%]">
-        <div className="absolute inset-x-0 top-0 h-[55%] rounded-md bg-[#dfc09a] ring-2 ring-[#c3a077]" />
-        <div className="absolute left-1/2 top-[-34%] h-[42%] w-[36%] -translate-x-1/2 rounded-sm bg-[#4a5568] p-[3px]">
-          <div className="h-full w-full rounded-[2px] bg-[#8fc4e8]" />
+        {/* 회계팀 */}
+        {[664, 830, 996].map((dx) => (
+          <g key={`a${dx}`}>
+            <Chair x={dx + 25} y={392} />
+            <Desk x={dx} y={418} w={76} />
+          </g>
+        ))}
+        <Plant x={1142} y={500} />
+        <Plant x={642} y={340} />
+
+        {/* 창고 */}
+        <Shelf x={62} y={600} w={110} />
+        <Boxes x={212} y={604} />
+        <Plant x={56} y={726} />
+
+        {/* 출입구 */}
+        <Mat x={738} y={676} w={104} h={34} />
+        <Door x={742} y={716} w={96} />
+        <RoundTable x={1046} y={650} r={26} />
+        <Plant x={436} y={726} />
+        <Plant x={1142} y={726} />
+        <Plant x={960} y={600} />
+      </svg>
+
+      {/* ───── 사람 ───── */}
+      {STAFF.map((s) => (
+        <div
+          key={s.id}
+          className="absolute flex flex-col items-center"
+          style={{ left: px(s.x), top: py(s.y), height: CHAR_H, transform: "translate(-50%, -100%)" }}
+        >
+          <OfficeCharacter look={s.look} pose={s.pose} facing={s.facing} height="100%" label={s.name} />
+          <NameTag>{s.name}</NameTag>
         </div>
-        <div className="absolute left-1/2 top-[58%] h-[14%] w-[46%] -translate-x-1/2 rounded-[2px] bg-[#cbb494]" />
-        <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-2.5 py-0.5 text-[11px] font-bold text-gray-600 shadow-sm ring-1 ring-black/5">
-          🪑 {ZONE_NAME.desk}
-        </span>
-      </div>
+      ))}
 
-      {/* 출입구 */}
-      <div className="absolute bottom-[4%] left-[3%] w-[18%]">
-        <div className="relative mx-auto h-16 w-14 rounded-t-lg bg-[#d9c3a8] ring-2 ring-[#b99d7e]">
-          <div className="absolute inset-x-1.5 top-1.5 bottom-1.5 rounded-sm bg-[#c9ae8e]" />
-          <div className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#8a7358]" />
-        </div>
-        <div className="mx-auto mt-1 h-2 w-16 rounded-full bg-[#e3d4c1]" />
-        <span className="mt-1 block whitespace-nowrap text-center text-[11px] font-bold text-gray-600">
-          🚪 {ZONE_NAME.entrance}
-        </span>
-      </div>
-
-      <SideDesk className="left-[10%] top-[60%] w-[14%]" />
-      <SideDesk className="right-[10%] top-[60%] w-[14%]" />
-
-      <Plant className="bottom-[8%] right-[7%]" />
-      <Plant className="bottom-[8%] right-[15%]" />
-
-      {/* ─── 캐릭터 ─── */}
       <div
-        className="absolute z-20 flex flex-col items-center"
-        style={{
-          left: `${pos.x}%`,
-          top: `${pos.y}%`,
-          transform: "translate(-50%, -100%)",
-          transition: `left ${durationMs}ms ease-in-out, top ${durationMs}ms ease-in-out`,
-        }}
+        className="absolute z-10 flex flex-col items-center"
+        style={{ left: px(me.x), top: py(me.y), height: CHAR_H, transform: "translate(-50%, -100%)" }}
       >
-        {showBubble ? (
-          <div className="mb-1.5 max-w-[240px] rounded-2xl border-2 border-purple-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-gray-800 shadow-md">
-            {message}
-          </div>
-        ) : (
-          <span className="mb-1.5 whitespace-nowrap rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-bold text-gray-700 shadow ring-1 ring-black/5">
-            {ZONE_NAME[location]}
-          </span>
-        )}
-        <OfficeCharacter activity={shownActivity} facing={facing} height={88} />
+        <OfficeCharacter
+          look={ME_LOOK}
+          pose={POSE_BY_ACTIVITY[activity]}
+          facing="right"
+          height="100%"
+          label="김주희"
+        />
+        <NameTag mine>김주희</NameTag>
       </div>
     </div>
   );
