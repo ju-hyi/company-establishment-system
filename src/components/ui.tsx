@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import type { ScheduleCategory, TaskPriority, TaskStatus } from "../types";
+import type { ScheduleCategory, TaskCategory, TaskPriority, TaskStatus } from "../types";
 
 /**
  * 대시보드와 관리 페이지가 같이 쓰는 카드 · 라벨 · 색 정의.
  */
 
-export type PageId = "office" | "tasks" | "calendar" | "stats" | "settings";
+export type PageId = "office" | "tasks" | "calendar" | "stats" | "settings" | "character";
 
 export function Card({
   children,
@@ -63,6 +63,15 @@ export const TASK_STATUS: Record<TaskStatus, { label: string; badge: string; dot
   pending: { label: "예정", badge: "bg-amber-50 text-amber-600", dot: "bg-amber-400" },
   on_hold: { label: "보류", badge: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
 };
+
+/** 업무 구분 — 메인 화면 왼쪽 블럭 순서와 같다. */
+export const TASK_CATEGORY: Record<TaskCategory, { label: string; icon: string; badge: string }> = {
+  work: { label: "회사 업무", icon: "🏢", badge: "bg-rose-50 text-rose-500" },
+  personal: { label: "공부 및 개인 활동", icon: "📚", badge: "bg-violet-50 text-violet-600" },
+  mx_instagram: { label: "MX 인스타", icon: "📱", badge: "bg-sky-50 text-sky-600" },
+};
+
+export const CATEGORY_ORDER: TaskCategory[] = ["work", "personal", "mx_instagram"];
 
 export const TASK_PRIORITY: Record<TaskPriority, { label: string; badge: string }> = {
   urgent: { label: "긴급", badge: "bg-rose-50 text-rose-600" },

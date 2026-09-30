@@ -1,17 +1,82 @@
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
+import DailyMessageCard, { DEFAULT_DAILY_MESSAGE } from "../components/DailyMessageCard";
+import type { useOfficeProfile } from "../hooks/useOfficeProfile";
 import OfficeCharacter from "../components/OfficeCharacter";
 import { ME_LOOK } from "../components/OfficeScene";
-import { Card, CardTitle, PageHeader } from "../components/ui";
+import { lookFor, type Appearance } from "../components/appearance";
+import { Card, CardTitle, PageHeader, inputClass } from "../components/ui";
 
 /**
- * 설정 — 계정 정보와 서비스 정보. 계정/인증 구조는 여기서 바꾸지 않는다.
+ * 설정 — 오늘의 한마디, 계정 정보, 서비스 정보. 계정/인증 구조는 여기서 바꾸지 않는다.
  */
 
 interface SettingsPageProps {
   name: string;
   username: string;
   level: number;
+  office: ReturnType<typeof useOfficeProfile>;
+  appearance: Appearance;
   onSignOut: () => void;
+}
+
+function DailyMessageEditor({ office }: { office: ReturnType<typeof useOfficeProfile> }) {
+  const [draft, setDraft] = useState(office.dailyMessage ?? "");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  // 프로필이 늦게 도착하면 저장된 값으로 채운다.
+  useEffect(() => setDraft(office.dailyMessage ?? ""), [office.dailyMessage]);
+
+  const save = async () => {
+    setState("saving");
+    try {
+      await office.saveDailyMessage(draft);
+      setState("saved");
+    } catch {
+      setState("error");
+    }
+  };
+
+  return (
+    <Card>
+      <CardTitle>오늘의 한마디</CardTitle>
+      <p className="mb-3 text-sm text-gray-500">라이브 오피스 하단에 캐릭터 말풍선으로 보여줄 문구예요.</p>
+      <div className="grid gap-4 md:grid-cols-[1fr_280px]">
+        <div>
+          <textarea
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setState("idle");
+            }}
+            rows={3}
+            maxLength={80}
+            placeholder={DEFAULT_DAILY_MESSAGE}
+            className={`${inputClass} resize-none`}
+            aria-label="오늘의 한마디"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={save}
+              disabled={state === "saving" || !office.available}
+              className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:opacity-40"
+            >
+              저장
+            </button>
+            <span className="text-xs text-gray-400">{draft.length}/80 · 비워두면 기본 문구</span>
+            {state === "saved" && <span className="text-xs font-semibold text-emerald-600">저장했어요</span>}
+            {state === "error" && <span className="text-xs text-rose-500">저장하지 못했어요</span>}
+          </div>
+          {!office.available && (
+            <p className="mt-2 text-xs text-amber-700">DB 업데이트(0003 마이그레이션) 후 저장할 수 있어요.</p>
+          )}
+        </div>
+        <div className="[&>section]:shadow-none">
+          <DailyMessageCard message={draft} />
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -23,17 +88,26 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function SettingsPage({ name, username, level, onSignOut }: SettingsPageProps) {
+export default function SettingsPage({
+  name,
+  username,
+  level,
+  office,
+  appearance,
+  onSignOut,
+}: SettingsPageProps) {
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="설정" description="계정과 서비스 정보를 확인합니다." />
+      <PageHeader title="설정" description="오늘의 한마디와 계정 정보를 관리합니다." />
 
       <div className="space-y-5">
+        <DailyMessageEditor office={office} />
+
         <Card>
           <CardTitle>내 계정</CardTitle>
           <div className="mb-2 flex items-center gap-4 rounded-xl bg-[#fdf6f3] p-4">
             <div className="h-16 shrink-0">
-              <OfficeCharacter look={ME_LOOK} pose="stand" height="100%" label="내 캐릭터" />
+              <OfficeCharacter look={lookFor(ME_LOOK, appearance)} pose="stand" height="100%" label="내 캐릭터" />
             </div>
             <div>
               <p className="text-lg font-bold text-gray-900">{name}</p>

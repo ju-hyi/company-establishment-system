@@ -19,6 +19,9 @@ interface HeaderProps {
   page: PageId;
   onNavigate: (page: PageId) => void;
   onSignOut: () => void;
+  /** 꾸미기에서 고른 대표 이미지 · 포인트 색 */
+  avatarSrc?: string;
+  avatarColor?: string;
 }
 
 export const NAV_ITEMS: { id: PageId; label: string; icon: typeof Home }[] = [
@@ -29,8 +32,18 @@ export const NAV_ITEMS: { id: PageId; label: string; icon: typeof Home }[] = [
   { id: "settings", label: "설정", icon: Settings },
 ];
 
-export default function Header({ name, username, level, page, onNavigate, onSignOut }: HeaderProps) {
+export default function Header({
+  name,
+  username,
+  level,
+  page,
+  onNavigate,
+  onSignOut,
+  avatarSrc,
+  avatarColor = "#fb7185",
+}: HeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const [showNav, setShowNav] = useState(false);
 
   const go = (id: PageId) => {
@@ -80,9 +93,35 @@ export default function Header({ name, username, level, page, onNavigate, onSign
               onClick={() => setShowMenu(!showMenu)}
               className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-gray-50"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-rose-200 to-pink-300 text-sm font-bold text-white">
-                {name.charAt(0)}
-              </div>
+              {avatarSrc && !avatarFailed ? (
+                // 증명사진처럼 머리 전체 + 어깨가 원 안에 들어오게 (귀·모자도 잘리지 않음) — 원본 480px 를 줄여 써서 깨지지 않는다
+                <span
+                  className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#fdf6f3]"
+                  style={{ boxShadow: `0 0 0 2px #fff, 0 0 0 3.5px ${avatarColor}` }}
+                >
+                  <img
+                    src={avatarSrc}
+                    alt={`${name} 프로필`}
+                    width={36}
+                    height={36}
+                    draggable={false}
+                    onError={() => setAvatarFailed(true)}
+                    className="absolute inset-0 h-full w-full object-contain"
+                    style={{
+                      objectPosition: "50% 100%",
+                      transform: "translateY(2%) scale(0.86)",
+                      transformOrigin: "50% 100%",
+                    }}
+                  />
+                </span>
+              ) : (
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ background: avatarColor }}
+                >
+                  {name.charAt(0)}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-semibold leading-tight text-gray-900">{name}</p>
                 <p className="mt-0.5 inline-block rounded-md bg-rose-50 px-1.5 text-[10px] font-bold text-rose-400">

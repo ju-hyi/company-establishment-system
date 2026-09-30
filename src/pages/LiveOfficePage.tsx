@@ -3,23 +3,31 @@ import LeftSidebar from "../components/LeftSidebar";
 import RightSidebar from "../components/RightSidebar";
 import OfficeScene from "../components/OfficeScene";
 import DashboardBottom from "../components/DashboardBottom";
+import DailyMessageCard from "../components/DailyMessageCard";
+import {
+  CharacterManageCard,
+  ME_ID,
+  myStatusOf,
+} from "../components/CharacterManager";
 import { ACTIVITY_LABEL } from "../hooks/useStats";
+import { ME_LOOK } from "../components/OfficeScene";
+import { illustrationOf, lookFor, pointColorOf, type Appearance } from "../components/appearance";
 import { formatDuration, todayKey } from "../utils/helpers";
 import type { ActivityType, CharacterState } from "../types";
 import type { PageId } from "../components/ui";
 import type { useTasks } from "../hooks/useTasks";
 import type { useWorkSession } from "../hooks/useWorkSession";
 import type { useActivities } from "../hooks/useActivities";
-import type { useSchedules } from "../hooks/useSchedules";
 import type { Stats } from "../hooks/useStats";
+import type { useOfficeProfile } from "../hooks/useOfficeProfile";
 
 /**
  * 라이브 오피스 — 오늘 상황을 한눈에 보는 대시보드.
  *
- *   왼쪽  : 오늘 할 일 + 오늘의 진행률
- *   가운데: LIVE OFFICE 회사 맵 (디자인은 OfficeScene 그대로)
- *   오른쪽: 날짜·시각 + 오늘의 일정 + 근무 시간 + 지금 하는 일
- *   아래  : 업무 히스토리 + 이번 주 통계 + 이번 주 활동
+ *   왼쪽  : 회사 업무 · 공부 및 개인 활동 · MX 인스타 · 오늘의 진행률
+ *   가운데: LIVE OFFICE 회사 맵 (디자인은 OfficeScene 그대로) + 지금 하는 일
+ *   오른쪽: 날짜·시각 · 근무 시간 · 오늘의 진행률(+캐릭터 응원)
+ *   아래  : 오늘의 한마디 · 업무 히스토리 · 이번 주 통계 · 이번 주 활동 · 캐릭터 관리
  *
  * 업무·일정 등록 UI 는 두지 않는다. 등록/수정은 "오늘 할 일" · "캘린더" 페이지에서 한다.
  */
@@ -28,8 +36,12 @@ interface LiveOfficePageProps {
   tasks: ReturnType<typeof useTasks>;
   work: ReturnType<typeof useWorkSession>;
   activities: ReturnType<typeof useActivities>;
-  schedules: ReturnType<typeof useSchedules>;
   stats: Stats;
+  office: ReturnType<typeof useOfficeProfile>;
+  /** 캐릭터 꾸미기 값 */
+  appearance: Appearance;
+  /** 내 캐릭터 기본 이름 (프로필 이름) */
+  myName: string;
   onDataChange: () => void;
   onNavigate: (page: PageId) => void;
 }
@@ -63,8 +75,10 @@ export default function LiveOfficePage({
   tasks,
   work,
   activities,
-  schedules,
   stats,
+  office,
+  appearance,
+  myName,
   onDataChange,
   onNavigate,
 }: LiveOfficePageProps) {
@@ -99,6 +113,14 @@ export default function LiveOfficePage({
         : lastCheckOut
           ? "오늘 업무 종료"
           : "출근 전";
+
+  const myStatus = myStatusOf(
+    activities.activity?.type ?? null,
+    work.isCheckedIn,
+    scene.activity === "leaving"
+  );
+  const myDisplayName = office.characters[ME_ID]?.name ?? myName;
+  const myLook = lookFor(ME_LOOK, appearance);
 
   const handleCheckIn = async () => {
     await work.checkIn();
@@ -148,7 +170,15 @@ export default function LiveOfficePage({
             )}
           </div>
 
-          <OfficeScene location={scene.location} activity={scene.activity} />
+          <OfficeScene
+            location={scene.location}
+            activity={scene.activity}
+            overrides={office.characters}
+            myName={myDisplayName}
+            myStatus={myStatus}
+            myLook={myLook}
+            myColor={pointColorOf(appearance)}
+          />
 
           {/* 내 상태 + 지금 하는 일 전환 — 누르면 캐릭터가 해당 공간으로 이동한다 */}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl bg-[#fdf6f3] px-4 py-2.5 text-sm">
@@ -214,7 +244,7 @@ export default function LiveOfficePage({
         <div className="xl:relative xl:order-3">
           <div className="h-full xl:absolute xl:inset-0">
           <RightSidebar
-            schedules={schedules.schedules}
+            tasks={tasks.tasks}
             isCheckedIn={work.isCheckedIn}
             checkInAt={work.session?.check_in_at ?? firstCheckIn}
             checkOutAt={lastCheckOut}
@@ -222,7 +252,6 @@ export default function LiveOfficePage({
             workLoading={work.loading}
             onCheckIn={handleCheckIn}
             onCheckOut={handleCheckOut}
-            onOpenCalendar={() => onNavigate("calendar")}
           />
           </div>
         </div>
@@ -232,6 +261,17 @@ export default function LiveOfficePage({
         stats={stats}
         liveWorkSeconds={work.elapsedSeconds}
         onOpenStats={() => onNavigate("stats")}
+        messageCard={
+          <DailyMessageCard message={office.dailyMessage} onEdit={() => onNavigate("settings")} />
+        }
+        characterCard={
+          <CharacterManageCard
+            name={myDisplayName}
+            status={myStatus}
+            imageSrc={illustrationOf(appearance)}
+            onCustomize={() => onNavigate("character")}
+          />
+        }
       />
     </div>
   );

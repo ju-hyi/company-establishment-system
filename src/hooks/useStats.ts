@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { listSessionsSince } from "../services/workSessions";
-import { listTasksSince } from "../services/tasks";
+import { categoryOf, listTasksSince } from "../services/tasks";
 import { listActivitiesSince } from "../services/activities";
 import { todayKey } from "../utils/helpers";
-import type { Activity, ActivityType, Task, WorkSession } from "../types";
+import type { Activity, ActivityType, Task, TaskCategory, WorkSession } from "../types";
 
 /** 하루 단위 집계 (최근 7일, 오래된 날 → 오늘 순) */
 export interface DayStat {
@@ -35,6 +35,8 @@ export interface Stats {
   personalSeconds: number;
   /** 완료한 업무의 실제 소요시간 합 */
   taskSeconds: number;
+  /** 위 합계를 업무 구분별로 나눈 값 */
+  taskSecondsByCategory: Record<TaskCategory, number>;
   daily: DayStat[];
   timeline: TimelineEntry[];
   sessions: WorkSession[];
@@ -51,6 +53,7 @@ const EMPTY: Stats = {
   breakSeconds: 0,
   personalSeconds: 0,
   taskSeconds: 0,
+  taskSecondsByCategory: { work: 0, personal: 0, mx_instagram: 0 },
   daily: [],
   timeline: [],
   sessions: [],
@@ -155,6 +158,15 @@ export function useStats(userId: string | null, refreshKey: unknown) {
       taskSeconds: tasks
         .filter((t) => t.status === "completed")
         .reduce((acc, t) => acc + (t.duration_seconds ?? 0), 0),
+      taskSecondsByCategory: tasks
+        .filter((t) => t.status === "completed")
+        .reduce(
+          (acc, t) => {
+            acc[categoryOf(t)] += t.duration_seconds ?? 0;
+            return acc;
+          },
+          { work: 0, personal: 0, mx_instagram: 0 } as Record<TaskCategory, number>
+        ),
       daily,
       timeline: buildTimeline(todayKey(), sessions, tasks, activities),
       sessions,

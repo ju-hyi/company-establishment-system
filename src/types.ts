@@ -1,6 +1,8 @@
 export type TaskStatus = "pending" | "in_progress" | "completed" | "on_hold";
 export type TaskPriority = "low" | "normal" | "high" | "urgent";
 export type ActivityType = "study" | "exercise" | "break" | "personal";
+/** 업무 구분 — 메인 화면 왼쪽의 세 블럭에 대응한다. */
+export type TaskCategory = "work" | "personal" | "mx_instagram";
 export type ScheduleCategory = "work" | "personal" | "study" | "exercise" | "etc";
 
 export interface Profile {
@@ -34,6 +36,8 @@ export interface Task {
   description: string | null;
   status: TaskStatus;
   priority: TaskPriority;
+  /** 0003 마이그레이션 전 행에는 없을 수 있다 → 회사 업무로 본다 (categoryOf 사용) */
+  category?: TaskCategory;
   task_date: string;
   due_date: string | null;
   estimated_minutes: number | null;
@@ -93,3 +97,19 @@ export interface CharacterState {
   message: string;
   messageEndTime?: number;
 }
+
+/** 회사 맵 캐릭터에 표시하는 상태 */
+export type StaffStatus = "working" | "moving" | "resting" | "meeting" | "studying" | "away";
+
+/** 캐릭터 관리에서 바꾼 값 (profiles.office_characters) */
+export type CharacterOverrides = Record<
+  string,
+  {
+    name?: string;
+    status?: StaffStatus;
+    /** 캐릭터별 사항(메모) */
+    note?: string;
+    /** 내 캐릭터 꾸미기 (components/appearance.ts 의 옵션 id) */
+    appearance?: { hair?: string; outfit?: string; point?: string; illustration?: string };
+  }
+>;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as taskService from "../services/tasks";
 import { secondsSince, todayKey } from "../utils/helpers";
-import type { Task, TaskPriority, TaskStatus } from "../types";
+import type { Task, TaskCategory, TaskPriority, TaskStatus } from "../types";
 
 export function useTasks(userId: string | null) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -47,9 +47,19 @@ export function useTasks(userId: string | null) {
     });
 
   const addTask = useCallback(
-    async (title: string, priority?: TaskPriority) => {
+    async (
+      title: string,
+      priority?: TaskPriority,
+      category?: TaskCategory,
+      status: TaskStatus = "pending"
+    ) => {
       if (!userId || !title.trim()) return;
-      upsert(await taskService.createTask(userId, title.trim(), priority));
+      let created = await taskService.createTask(userId, title.trim(), priority, category);
+      // 등록할 때 고른 상태도 시간 기록이 맞도록 전용 서비스로 반영한다.
+      if (status === "in_progress") created = await taskService.startTask(created.id);
+      else if (status === "completed") created = await taskService.completeTask(created);
+      else if (status === "on_hold") created = await taskService.updateTask(created.id, { status });
+      upsert(created);
     },
     [userId]
   );
