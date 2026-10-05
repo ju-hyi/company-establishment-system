@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import { format } from "date-fns";
 import { ChevronRight } from "lucide-react";
-import type { ScheduleCategory, TaskCategory, TaskPriority, TaskStatus } from "../types";
+import type { ScheduleCategory, Task, TaskCategory, TaskPriority, TaskStatus } from "../types";
 
 /**
  * 대시보드와 관리 페이지가 같이 쓰는 카드 · 라벨 · 색 정의.
@@ -61,8 +62,29 @@ export const TASK_STATUS: Record<TaskStatus, { label: string; badge: string; dot
   completed: { label: "완료", badge: "bg-emerald-50 text-emerald-600", dot: "bg-emerald-500" },
   in_progress: { label: "진행중", badge: "bg-blue-50 text-blue-600", dot: "bg-blue-500" },
   pending: { label: "예정", badge: "bg-amber-50 text-amber-600", dot: "bg-amber-400" },
-  on_hold: { label: "보류", badge: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
+  // 시작한 뒤 잠시 멈춘 상태(완료 아님). 값은 기존 'on_hold' 를 그대로 쓴다.
+  on_hold: { label: "중지", badge: "bg-gray-100 text-gray-500", dot: "bg-gray-400" },
 };
+
+const md = (date: string) => format(new Date(`${date}T00:00:00`), "M/d");
+
+/**
+ * 업무 기간 · 날짜 표시 — "10/5 ~ 10/10", 끝나지 않은 채 날짜가 지난 업무는 "이월" / "기한 지남".
+ * 기간도 없고 오늘 업무면 null.
+ */
+export function taskDateBadge(task: Task, today: string): { label: string; tone: string } | null {
+  const open = task.status !== "completed";
+  if (task.due_date) {
+    const overdue = open && task.due_date < today;
+    return {
+      label: `${md(task.task_date)} ~ ${md(task.due_date)}${overdue ? " · 기한 지남" : ""}`,
+      tone: overdue ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-600",
+    };
+  }
+  if (task.task_date > today) return { label: `${md(task.task_date)} 예정`, tone: "bg-indigo-50 text-indigo-600" };
+  if (open && task.task_date < today) return { label: `${md(task.task_date)}부터 이월`, tone: "bg-orange-50 text-orange-600" };
+  return null;
+}
 
 /** 업무 구분 — 메인 화면 왼쪽 블럭 순서와 같다. */
 export const TASK_CATEGORY: Record<TaskCategory, { label: string; icon: string; badge: string }> = {

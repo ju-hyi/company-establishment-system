@@ -44,6 +44,8 @@ interface LiveOfficePageProps {
   myName: string;
   onDataChange: () => void;
   onNavigate: (page: PageId) => void;
+  /** 업무 히스토리 날짜별 팝업 */
+  onOpenHistory: () => void;
 }
 
 type Scene = Pick<CharacterState, "location" | "activity">;
@@ -82,6 +84,7 @@ export default function LiveOfficePage({
   myName,
   onDataChange,
   onNavigate,
+  onOpenHistory,
 }: LiveOfficePageProps) {
   const [leaving, setLeaving] = useState(false);
   const leaveTimer = useRef<number | undefined>(undefined);
@@ -241,6 +244,12 @@ export default function LiveOfficePage({
               await tasks.setStatus(task.id, task.status === "completed" ? "pending" : "completed");
               onDataChange();
             }}
+            onStatus={async (task, status) => {
+              // 시작 · 중지 · 재시작 · 완료 — 오늘 할 일 페이지와 같은 처리(시간 · 진행 기록)
+              await tasks.setStatus(task.id, status);
+              onDataChange();
+            }}
+            today={tasks.today}
             onOpenTasks={() => onNavigate("tasks")}
           />
           </div>
@@ -267,6 +276,7 @@ export default function LiveOfficePage({
         stats={stats}
         liveWorkSeconds={work.elapsedSeconds}
         onOpenStats={() => onNavigate("stats")}
+        onOpenHistory={onOpenHistory}
         messageCard={
           <DailyMessageCard message={office.dailyMessage} onEdit={() => onNavigate("settings")} />
         }

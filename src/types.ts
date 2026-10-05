@@ -38,14 +38,41 @@ export interface Task {
   priority: TaskPriority;
   /** 0003 마이그레이션 전 행에는 없을 수 있다 → 회사 업무로 본다 (categoryOf 사용) */
   category?: TaskCategory;
+  /** 업무 날짜 = 기간의 시작일 */
   task_date: string;
+  /** 기간의 종료일 (없으면 하루짜리 업무) */
   due_date: string | null;
   estimated_minutes: number | null;
+  /** 가장 최근에 시작(재시작)한 시각 */
   started_at: string | null;
   completed_at: string | null;
+  /**
+   * 실제 업무시간(초). 진행중이면 이전 구간까지의 합이고, 지금 구간은 started_at 부터 더한다.
+   * 완료되면 전체 합계.
+   */
   duration_seconds: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** 업무 진행 기록 종류 — 시작 · 중지 · 재시작 · 완료 · 완료 취소 */
+export type TaskEventType = "start" | "pause" | "resume" | "complete" | "reopen";
+
+/**
+ * 업무 진행 기록 (task_events, 0005 마이그레이션).
+ * tasks 행은 지금 상태만 갖고, "그날 실제로 한 일" 은 이 기록으로 남는다.
+ * 업무가 삭제되면 task_id 는 null 이 되고 업무명은 task_title 로 남는다.
+ */
+export interface TaskEvent {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  task_title: string;
+  task_category: TaskCategory | null;
+  event_type: TaskEventType;
+  event_date: string;
+  occurred_at: string;
+  created_at: string;
 }
 
 export interface Activity {

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Card, CardTitle, Empty, formatHours } from "./ui";
 import WeeklyStatsCard from "./WeeklyStatsCard";
+import { timelineDot } from "./HistoryDayModal";
 import { formatTime } from "../utils/helpers";
-import type { Stats, TimelineEntry } from "../hooks/useStats";
+import type { Stats } from "../hooks/useStats";
 
 /**
  * 라이브 오피스 하단 — 오늘의 한마디 · 업무 히스토리 · 이번 주 통계 · 이번 주 활동 · 캐릭터 관리.
@@ -14,17 +15,13 @@ interface DashboardBottomProps {
   /** 진행 중인 근무 세션의 경과 시간 — 아직 DB 에 합산되지 않은 오늘 몫 */
   liveWorkSeconds: number;
   onOpenStats: () => void;
+  /** 업무 히스토리 — 날짜별 기록 팝업 열기 */
+  onOpenHistory: () => void;
   /** ① 오늘의 한마디 */
   messageCard: ReactNode;
   /** ⑤ 캐릭터 관리 */
   characterCard: ReactNode;
 }
-
-const KIND_DOT: Record<TimelineEntry["kind"], string> = {
-  work: "bg-blue-400",
-  task: "bg-amber-400",
-  activity: "bg-violet-400",
-};
 
 /**
  * 넓은 화면(한 줄 5칸)에서는 줄 높이를 "이번 주 활동" 카드가 정한다.
@@ -38,15 +35,11 @@ function FitRow({ children, className = "" }: { children: ReactNode; className?:
   );
 }
 
-function dotFor(entry: TimelineEntry) {
-  if (entry.kind === "task" && entry.label.endsWith("완료")) return "bg-emerald-400";
-  return KIND_DOT[entry.kind];
-}
-
 export default function DashboardBottom({
   stats,
   liveWorkSeconds,
   onOpenStats,
+  onOpenHistory,
   messageCard,
   characterCard,
 }: DashboardBottomProps) {
@@ -67,17 +60,17 @@ export default function DashboardBottom({
       {/* ② 업무 히스토리 */}
       <FitRow>
       <Card className="flex flex-col">
-        <CardTitle>업무 히스토리</CardTitle>
+        <CardTitle link={{ label: "날짜별 보기", onClick: onOpenHistory }}>업무 히스토리</CardTitle>
         {stats.timeline.length === 0 ? (
           <Empty>오늘 기록이 아직 없어요</Empty>
         ) : (
           <ol className="relative max-h-[320px] min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1 xl:max-h-none">
             <span className="absolute bottom-2 left-[3.5px] top-2 w-px bg-[#efe6df]" aria-hidden />
             {stats.timeline.map((entry) => (
-              <li key={entry.id} className="relative flex items-center gap-3 text-sm">
-                <span className={`h-2 w-2 shrink-0 rounded-full ring-2 ring-white ${dotFor(entry)}`} />
-                <span className="w-11 shrink-0 font-mono text-xs text-gray-400">{formatTime(entry.at)}</span>
-                <span className="min-w-0 flex-1 truncate text-gray-700">{entry.label}</span>
+              <li key={entry.id} className="relative flex items-start gap-3 text-sm">
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ring-2 ring-white ${timelineDot(entry)}`} />
+                <span className="w-11 shrink-0 pt-px font-mono text-xs text-gray-400">{formatTime(entry.at)}</span>
+                <span className="min-w-0 flex-1 break-words text-gray-700">{entry.label}</span>
               </li>
             ))}
           </ol>

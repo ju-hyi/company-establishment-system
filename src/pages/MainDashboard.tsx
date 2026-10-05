@@ -6,6 +6,7 @@ import CalendarPage from "./CalendarPage";
 import StatsPage from "./StatsPage";
 import SettingsPage from "./SettingsPage";
 import CharacterPage from "./CharacterPage";
+import HistoryDayModal from "../components/HistoryDayModal";
 import { ME_ID, myStatusOf } from "../components/CharacterManager";
 import { illustrationOf, pointColorOf, resolveAppearance } from "../components/appearance";
 import type { PageId } from "../components/ui";
@@ -15,6 +16,7 @@ import { useActivities } from "../hooks/useActivities";
 import { useStats } from "../hooks/useStats";
 import { useSchedules } from "../hooks/useSchedules";
 import { useOfficeProfile } from "../hooks/useOfficeProfile";
+import { todayKey } from "../utils/helpers";
 
 interface MainDashboardProps {
   userId: string;
@@ -41,6 +43,8 @@ export default function MainDashboard({
   const [page, setPage] = useState<PageId>(pageFromHash);
   const [statsKey, setStatsKey] = useState(0);
   const refreshStats = () => setStatsKey((n) => n + 1);
+  // 날짜별 업무 히스토리 팝업 — 라이브 오피스 · 기록/통계에서 같이 쓴다 (null 이면 닫힘)
+  const [historyDate, setHistoryDate] = useState<string | null>(null);
 
   // 모든 페이지가 같은 데이터를 공유한다 — 관리 페이지에서 바꾼 내용이 대시보드에 바로 보인다.
   const tasks = useTasks(userId);
@@ -89,11 +93,20 @@ export default function MainDashboard({
             myName={name}
             onDataChange={refreshStats}
             onNavigate={navigate}
+            onOpenHistory={() => setHistoryDate(todayKey())}
           />
         )}
         {page === "tasks" && <TasksPage tasks={tasks} onDataChange={refreshStats} />}
         {page === "calendar" && <CalendarPage userId={userId} onChanged={schedules.reload} />}
-        {page === "stats" && <StatsPage stats={stats} liveWorkSeconds={work.elapsedSeconds} />}
+        {page === "stats" && (
+          <StatsPage
+            stats={stats}
+            liveWorkSeconds={work.elapsedSeconds}
+            userId={userId}
+            refreshKey={statsKey}
+            onOpenDay={setHistoryDate}
+          />
+        )}
         {page === "character" && (
           <CharacterPage
             office={office}
@@ -115,6 +128,16 @@ export default function MainDashboard({
           />
         )}
       </main>
+
+      {historyDate && (
+        <HistoryDayModal
+          userId={userId}
+          date={historyDate}
+          onDateChange={setHistoryDate}
+          onClose={() => setHistoryDate(null)}
+          refreshKey={statsKey}
+        />
+      )}
     </div>
   );
 }

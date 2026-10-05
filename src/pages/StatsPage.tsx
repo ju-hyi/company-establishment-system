@@ -2,17 +2,23 @@ import type { ReactNode } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Card, CardTitle, Empty, PageHeader, formatHours } from "../components/ui";
+import HistoryCalendar from "../components/HistoryCalendar";
 import { ACTIVITY_LABEL, type Stats } from "../hooks/useStats";
-import { formatDuration, formatTime, todayKey } from "../utils/helpers";
+import { formatDuration, formatTime } from "../utils/helpers";
 
 /**
  * 기록/통계 — 최근 7일 동안의 근무 · 업무 · 공부/운동/휴식 기록을 확인한다.
- * 모든 값은 원본 기록(work_sessions / tasks / activities)에서 계산한다.
+ * 일별 기록은 달력으로 보여주고, 날짜를 누르면 그날의 업무 히스토리 팝업이 열린다.
+ * 모든 값은 원본 기록(work_sessions / tasks / task_events / activities)에서 계산한다.
  */
 
 interface StatsPageProps {
   stats: Stats;
   liveWorkSeconds: number;
+  userId: string;
+  refreshKey?: unknown;
+  /** 달력에서 날짜를 누르면 그날 히스토리 팝업을 연다 */
+  onOpenDay: (date: string) => void;
 }
 
 const dayLabel = (date: string) => format(new Date(`${date}T00:00:00`), "M/d (EEE)", { locale: ko });
@@ -36,14 +42,9 @@ function RecordList({ title, empty, children }: { title: string; empty: boolean;
   );
 }
 
-export default function StatsPage({ stats, liveWorkSeconds }: StatsPageProps) {
-  const today = todayKey();
-  const daily = stats.daily.map((d) =>
-    d.date === today ? { ...d, workSeconds: d.workSeconds + liveWorkSeconds } : d
-  );
+export default function StatsPage({ stats, liveWorkSeconds, userId, refreshKey, onOpenDay }: StatsPageProps) {
   const weekWork = stats.weeklyWorkSeconds + liveWorkSeconds;
   const rate = stats.totalTasks === 0 ? 0 : Math.round((stats.completedTasks / stats.totalTasks) * 100);
-  const maxWork = Math.max(3600, ...daily.map((d) => d.workSeconds));
 
   const completed = stats.tasks
     .filter((t) => t.status === "completed")
@@ -51,7 +52,7 @@ export default function StatsPage({ stats, liveWorkSeconds }: StatsPageProps) {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="기록/통계" description="최근 7일 동안의 근무 · 업무 · 활동 기록입니다." />
+      <PageHeader title="기록/통계" description="최근 7일 합계와 날짜별 업무 기록입니다. 달력에서 날짜를 누르면 그날 한 일을 볼 수 있어요." />
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Kpi label="총 근무시간" value={formatHours(weekWork)} tone="text-rose-500" />
@@ -66,55 +67,8 @@ export default function StatsPage({ stats, liveWorkSeconds }: StatsPageProps) {
         <Kpi label="휴식 시간" value={formatHours(stats.breakSeconds)} tone="text-sky-600" />
       </div>
 
-      {/* 일별 */}
-      <Card className="mb-5">
-        <CardTitle>일별 기록</CardTitle>
-        <div className="-mx-1 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="text-left text-xs text-gray-400">
-                <th className="px-1 pb-2 font-semibold">날짜</th>
-                <th className="w-[34%] px-1 pb-2 font-semibold">근무 시간</th>
-                <th className="px-1 pb-2 font-semibold">업무 완료</th>
-                <th className="px-1 pb-2 font-semibold">공부</th>
-                <th className="px-1 pb-2 font-semibold">운동</th>
-                <th className="px-1 pb-2 font-semibold">휴식</th>
-                <th className="px-1 pb-2 font-semibold">개인일</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f3ede8]">
-              {[...daily].reverse().map((d) => (
-                <tr key={d.date} className={d.date === today ? "bg-rose-50/40" : ""}>
-                  <td className="whitespace-nowrap px-1 py-2.5 font-medium text-gray-700">
-                    {dayLabel(d.date)}
-                    {d.date === today && <span className="ml-1 text-[10px] font-bold text-rose-500">오늘</span>}
-                  </td>
-                  <td className="px-1 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f3ede8]">
-                        <div
-                          className="h-full rounded-full bg-rose-300"
-                          style={{ width: `${(d.workSeconds / maxWork) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-20 shrink-0 text-right text-xs font-semibold text-gray-700">
-                        {d.workSeconds ? formatHours(d.workSeconds) : "-"}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-1 py-2.5 text-gray-700">
-                    {d.totalTasks ? `${d.completedTasks}/${d.totalTasks}` : "-"}
-                  </td>
-                  <td className="px-1 py-2.5 text-gray-600">{d.studySeconds ? formatHours(d.studySeconds) : "-"}</td>
-                  <td className="px-1 py-2.5 text-gray-600">{d.exerciseSeconds ? formatHours(d.exerciseSeconds) : "-"}</td>
-                  <td className="px-1 py-2.5 text-gray-600">{d.breakSeconds ? formatHours(d.breakSeconds) : "-"}</td>
-                  <td className="px-1 py-2.5 text-gray-600">{d.personalSeconds ? formatHours(d.personalSeconds) : "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {/* 일별 — 달력 (날짜를 누르면 그날 업무 히스토리) */}
+      <HistoryCalendar userId={userId} refreshKey={refreshKey} onOpenDay={onOpenDay} />
 
       {/* 원본 기록 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

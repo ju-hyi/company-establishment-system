@@ -13,9 +13,9 @@ Supabase에 실제 기록으로 저장된다.
 | 화면 | 역할 |
 |---|---|
 | 라이브 오피스 (메인) | 오늘 상황을 보는 대시보드 — 오늘 할 일·진행률 / LIVE OFFICE 맵 / 시각·오늘 일정·근무 시간 / 업무 히스토리·주간 통계·활동. 등록 UI 없음 (출퇴근·지금 하는 일 전환만) |
-| 오늘 할 일 | 업무 추가 / 수정(업무명·우선순위·메모) / 상태 변경 / 시작·완료·되돌리기 / 삭제 |
+| 오늘 할 일 | 업무 추가 / 수정(업무명·기간·상태·우선순위·메모) / 시작·중지·재시작·완료·되돌리기 / 삭제. 끝나지 않은 업무는 다음 날에도 남는다(이월) |
 | 캘린더 | 월간 달력, 일정 추가 / 수정 / 삭제 (날짜·시작·종료 시간·분류·메모) |
-| 기록/통계 | 최근 7일 근무·업무·공부/운동/휴식 합계, 일별 기록, 원본 기록 목록 |
+| 기록/통계 | 최근 7일 근무·업무·공부/운동/휴식 합계, 일별 기록 달력(날짜를 누르면 그날 업무 히스토리 팝업), 원본 기록 목록 |
 | 설정 | 계정 정보, 서비스 정보, 로그아웃 |
 | 인증 | 아이디 + 비밀번호 로그인 / 회원가입 / 세션 유지 (이메일·인증메일 없음) |
 
@@ -57,7 +57,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
 
 1. Supabase에서 새 프로젝트 생성 (Region: Northeast Asia — Seoul)
 2. **SQL Editor**에서 [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) →
-   [`supabase/migrations/0002_username_auth.sql`](supabase/migrations/0002_username_auth.sql) 순서로 실행
+   [`supabase/migrations/0002_username_auth.sql`](supabase/migrations/0002_username_auth.sql) →
+   `0003` → `0004` → [`0005_task_events.sql`](supabase/migrations/0005_task_events.sql) 순서로 실행
 3. **Settings → API Keys**의 Publishable key를 `.env.local`에 등록
 
 ### DB 구조
@@ -66,7 +67,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
 |---|---|---|
 | `profiles` | 사용자 프로필 | `id`(auth.users FK), `username`(UNIQUE), `name`, `level` |
 | `work_sessions` | 출퇴근 | `work_date`, `check_in_at`, `check_out_at`, `duration_seconds` |
-| `tasks` | 업무 | `title`, `status`, `priority`, `started_at`, `completed_at`, `duration_seconds` |
+| `tasks` | 업무 (지금 상태) | `title`, `status`, `priority`, `task_date`(기간 시작일), `due_date`(기간 종료일), `started_at`(최근 시작), `completed_at`, `duration_seconds`(실제 업무시간 누적) |
+| `task_events` | 업무 진행 기록 (날짜별 히스토리) | `task_id`, `task_title`, `event_type`(start/pause/resume/complete/reopen), `event_date`, `occurred_at` |
 | `activities` | 개인 활동 | `type`(study/exercise/break/personal), `started_at`, `ended_at`, `duration_seconds` |
 | `schedules` | 캘린더 일정 | `title`, `category`, `schedule_date`, `start_time`, `end_time` |
 
@@ -79,6 +81,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
   안에서만 만들어 쓰고 화면에 노출하지 않으며, 기존 계정은 `auth_email_for_username()`
   으로 매핑해 `auth.users.id`(= 모든 데이터의 `user_id`)를 그대로 유지한다.
 - 하루에 진행 중인 근무 세션은 부분 유니크 인덱스로 하나만 허용한다.
+- **지금 할 일과 지난 기록을 분리한다.** `tasks` 는 지금 상태만, `task_events` 는 실제로 한 일을 추가 전용으로
+  쌓는다. 업무를 다시 시작하거나 되돌리거나 삭제해도 지난 날짜의 히스토리는 바뀌지 않는다.
+  (0005 적용 전에는 `tasks` 의 시작·완료 시각으로 히스토리를 보여준다)
 
 ### RLS
 

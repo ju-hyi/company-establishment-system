@@ -66,3 +66,21 @@ export async function listActivitiesSince(
   if (error) throw error;
   return data ?? [];
 }
+
+/** fromDate ~ toDate (둘 다 포함) 사이의 활동 기록 */
+export async function listActivitiesBetween(
+  userId: string,
+  fromDate: string,
+  toDate: string
+): Promise<Activity[]> {
+  const { data, error } = await supabase
+    .from("activities")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("activity_date", fromDate)
+    .lte("activity_date", toDate)
+    .order("started_at", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}

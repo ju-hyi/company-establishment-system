@@ -65,3 +65,21 @@ export async function listSessionsSince(
   if (error) throw error;
   return data ?? [];
 }
+
+/** fromDate ~ toDate (둘 다 포함) 사이의 근무 기록 */
+export async function listSessionsBetween(
+  userId: string,
+  fromDate: string,
+  toDate: string
+): Promise<WorkSession[]> {
+  const { data, error } = await supabase
+    .from("work_sessions")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("work_date", fromDate)
+    .lte("work_date", toDate)
+    .order("check_in_at", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}

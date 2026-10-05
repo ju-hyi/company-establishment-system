@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
-import { CATEGORY_ORDER, Card, CardTitle, Empty, TASK_CATEGORY, TASK_STATUS } from "./ui";
+import { Check, Pause, Play } from "lucide-react";
+import { CATEGORY_ORDER, Card, CardTitle, Empty, TASK_CATEGORY, TASK_STATUS, taskDateBadge } from "./ui";
 import { categoryOf } from "../services/tasks";
 import { formatDuration } from "../utils/helpers";
 import type { Task, TaskCategory, TaskStatus } from "../types";
@@ -8,7 +8,7 @@ import type { Task, TaskCategory, TaskStatus } from "../types";
 /**
  * 라이브 오피스 왼쪽 — 회사 업무 / 공부 및 개인 활동 / MX 인스타 / 오늘의 진행률 (확인용).
  * 세 블럭은 같은 컴포넌트(TaskBlock)를 쓰고, 업무의 구분(category)으로 나눠 보여준다.
- * 여기서는 완료 체크만 할 수 있다. 업무 추가 · 수정 · 삭제는 "오늘 할 일" 페이지에서 한다.
+ * 여기서는 완료 체크 · 상태 변경 · 시작/중지를 할 수 있다. 업무 추가 · 수정 · 삭제는 "오늘 할 일" 페이지에서 한다.
  */
 
 interface LeftSidebarProps {
@@ -18,7 +18,12 @@ interface LeftSidebarProps {
   onOpenTasks: () => void;
   /** 체크박스 — 완료 ↔ 되돌리기 */
   onToggle: (task: Task) => Promise<void>;
+  /** 상태 변경 · 시작/중지 버튼 */
+  onStatus: (task: Task, status: TaskStatus) => Promise<void>;
+  today: string;
 }
+
+const STATUS_OPTIONS: TaskStatus[] = ["pending", "in_progress", "on_hold", "completed"];
 
 /**
  * 왼쪽 네 블럭(회사 업무 · 공부 및 개인 활동 · MX 인스타 · 오늘의 진행률)은 항상 같은 높이다.
@@ -44,6 +49,8 @@ function TaskBlock({
   runningSeconds,
   onOpenTasks,
   onToggle,
+  onStatus,
+  today,
 }: {
   category: TaskCategory;
   tasks: Task[];
@@ -52,16 +59,19 @@ function TaskBlock({
   onOpenTasks: () => void;
   /** 체크박스 — 완료 ↔ 되돌리기 */
   onToggle: (task: Task) => Promise<void>;
+  onStatus: (task: Task, status: TaskStatus) => Promise<void>;
+  today: string;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
-  const toggle = async (task: Task) => {
+  const busy = async (task: Task, action: () => Promise<void>) => {
     setBusyId(task.id);
     try {
-      await onToggle(task);
+      await action();
     } finally {
       setBusyId(null);
     }
   };
+  const toggle = (task: Task) => busy(task, () => onToggle(task));
 
   const meta = TASK_CATEGORY[category];
   const total = tasks.length;
@@ -95,6 +105,8 @@ function TaskBlock({
             const status = TASK_STATUS[task.status];
             const isDone = task.status === "completed";
             const isActive = task.id === activeTaskId;
+            const running = task.status === "in_progress";
+            const badge = taskDateBadge(task, today);
             return (
               <li key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-[6px]">
                 <button
@@ -120,13 +132,40 @@ function TaskBlock({
                   >
                     {task.title}
                   </p>
-                  {isActive && (
-                    <p className="font-mono text-[11px] text-blue-500">⏱ {formatDuration(runningSeconds)}</p>
+                  {(isActive || badge) && (
+                    <p className="flex items-center gap-1.5 truncate text-[11px]">
+                      {isActive && <span className="font-mono text-blue-500">⏱ {formatDuration(runningSeconds)}</span>}
+                      {badge && <span className={`rounded px-1 font-semibold ${badge.tone}`}>{badge.label}</span>}
+                    </p>
                   )}
                 </div>
-                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${status.badge}`}>
-                  {status.label}
-                </span>
+                {!isDone && (
+                  <button
+                    type="button"
+                    onClick={() => busy(task, () => onStatus(task, running ? "on_hold" : "in_progress"))}
+                    disabled={busyId === task.id}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition disabled:opacity-50 ${
+                      running ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-blue-50 text-blue-500 hover:bg-blue-100"
+                    }`}
+                    aria-label={running ? `${task.title} 중지` : `${task.title} 시작`}
+                    title={running ? "중지" : task.started_at ? "재시작" : "시작"}
+                  >
+                    {running ? <Pause size={12} /> : <Play size={12} />}
+                  </button>
+                )}
+                <select
+                  value={task.status}
+                  onChange={(e) => busy(task, () => onStatus(task, e.target.value as TaskStatus))}
+                  disabled={busyId === task.id}
+                  className={`shrink-0 cursor-pointer appearance-none rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-rose-200 disabled:opacity-50 ${status.badge}`}
+                  aria-label={`${task.title} 상태`}
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {TASK_STATUS[s].label}
+                    </option>
+                  ))}
+                </select>
               </li>
             );
           })}
@@ -184,6 +223,8 @@ export default function LeftSidebar({
   runningSeconds,
   onOpenTasks,
   onToggle,
+  onStatus,
+  today,
 }: LeftSidebarProps) {
   return (
     <div className="flex h-full flex-col gap-3.5">
@@ -196,6 +237,8 @@ export default function LeftSidebar({
           runningSeconds={runningSeconds}
           onOpenTasks={onOpenTasks}
           onToggle={onToggle}
+          onStatus={onStatus}
+          today={today}
         />
       ))}
       <ProgressSummary tasks={tasks} />
