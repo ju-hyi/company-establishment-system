@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import { getActiveLunch, workSecondsBetween } from "./lunch";
 import { todayKey } from "./helpers";
 import type { Activity, ActivityType, Task, TaskCategory, TaskEvent, TaskEventType, WorkSession } from "../types";
 
@@ -160,7 +161,7 @@ export function buildHistory(days: string[], src: HistorySource, now: number = D
     const workSeconds = sessions.reduce((acc, s) => {
       if (s.duration_seconds !== null) return acc + s.duration_seconds;
       // 오늘 근무 중인 세션만 지금까지 시간을 더한다 (지난 날 퇴근 누락은 추정하지 않는다)
-      if (!s.check_out_at && date === today) return acc + Math.max(0, Math.floor((now - ms(s.check_in_at)) / 1000));
+      if (!s.check_out_at && date === today) return acc + workSecondsBetween(s.check_in_at, now, getActiveLunch());
       return acc;
     }, 0);
 

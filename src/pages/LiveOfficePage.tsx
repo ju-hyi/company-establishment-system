@@ -94,7 +94,9 @@ export default function LiveOfficePage({
   // 캐릭터 위치는 서버 상태(출근 · 활동 · 진행중 업무)에서 바로 계산한다.
   const scene: Scene = activities.activity
     ? ACTIVITY_SCENE[activities.activity.type]
-    : tasks.activeTask
+    : work.onLunch
+      ? { location: "break_room", activity: "resting" }
+      : tasks.activeTask
       ? { location: "meeting", activity: "working" }
       : work.isCheckedIn
         ? { location: "desk", activity: "working" }
@@ -110,7 +112,9 @@ export default function LiveOfficePage({
 
   const doingText = activities.activity
     ? `${ACTIVITY_LABEL[activities.activity.type]} 중`
-    : tasks.activeTask
+    : work.onLunch
+      ? "점심시간"
+      : tasks.activeTask
       ? `'${tasks.activeTask.title}' 처리 중`
       : work.isCheckedIn
         ? "자리에서 업무 중"
@@ -121,7 +125,8 @@ export default function LiveOfficePage({
   const myStatus = myStatusOf(
     activities.activity?.type ?? null,
     work.isCheckedIn,
-    scene.activity === "leaving"
+    scene.activity === "leaving",
+    work.onLunch
   );
   const myDisplayName = office.characters[ME_ID]?.name ?? myName;
   const myLook = lookFor(ME_LOOK, appearance);
@@ -159,13 +164,15 @@ export default function LiveOfficePage({
             <h2 className="text-lg font-extrabold tracking-tight text-gray-900">LIVE OFFICE</h2>
             <span
               className={`flex items-center gap-1.5 text-sm font-semibold ${
-                work.isCheckedIn ? "text-emerald-600" : "text-gray-400"
+                work.onLunch ? "text-amber-600" : work.isCheckedIn ? "text-emerald-600" : "text-gray-400"
               }`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${work.isCheckedIn ? "animate-pulse bg-emerald-500" : "bg-gray-300"}`}
+                className={`h-2 w-2 rounded-full ${
+                  work.onLunch ? "bg-amber-500" : work.isCheckedIn ? "animate-pulse bg-emerald-500" : "bg-gray-300"
+                }`}
               />
-              {work.isCheckedIn ? "근무 중" : lastCheckOut ? "퇴근" : "출근 전"}
+              {work.onLunch ? "점심시간" : work.isCheckedIn ? "근무 중" : lastCheckOut ? "퇴근" : "출근 전"}
             </span>
             {work.isCheckedIn && (
               <span className="font-mono text-sm font-semibold text-gray-700">
@@ -261,6 +268,8 @@ export default function LiveOfficePage({
           <RightSidebar
             tasks={tasks.tasks}
             isCheckedIn={work.isCheckedIn}
+            onLunch={work.onLunch}
+            lunch={work.lunch}
             checkInAt={work.session?.check_in_at ?? firstCheckIn}
             checkOutAt={lastCheckOut}
             elapsedSeconds={work.isCheckedIn ? work.elapsedSeconds : todayWorked}

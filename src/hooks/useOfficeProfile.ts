@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as officeProfile from "../services/officeProfile";
+import { DEFAULT_LUNCH, setActiveLunch, type Lunch } from "../utils/lunch";
 import type { CharacterOverrides } from "../types";
 
 export function useOfficeProfile(userId: string | null) {
@@ -8,12 +9,21 @@ export function useOfficeProfile(userId: string | null) {
     dailyMessage: null,
     characters: {},
   });
+  const [lunchState, setLunchState] = useState<{ available: boolean; lunch: Lunch | null }>({
+    available: true,
+    lunch: DEFAULT_LUNCH,
+  });
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     officeProfile.getOfficeProfile(userId).then((next) => {
       if (!cancelled) setState(next);
+    });
+    officeProfile.getLunch(userId).then((next) => {
+      if (cancelled) return;
+      setActiveLunch(next.lunch);
+      setLunchState(next);
     });
     return () => {
       cancelled = true;
@@ -47,5 +57,23 @@ export function useOfficeProfile(userId: string | null) {
     [userId, state.characters]
   );
 
-  return { ...state, saveDailyMessage, updateCharacter };
+  /** 점심시간 저장 — null 이면 점심시간을 쓰지 않는다. */
+  const saveLunch = useCallback(
+    async (lunch: Lunch | null) => {
+      if (!userId) return;
+      await officeProfile.updateLunch(userId, lunch);
+      setActiveLunch(lunch);
+      setLunchState({ available: true, lunch });
+    },
+    [userId]
+  );
+
+  return {
+    ...state,
+    lunch: lunchState.lunch,
+    lunchAvailable: lunchState.available,
+    saveDailyMessage,
+    updateCharacter,
+    saveLunch,
+  };
 }

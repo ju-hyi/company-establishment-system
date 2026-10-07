@@ -6,10 +6,12 @@ import OfficeCharacter from "../components/OfficeCharacter";
 import { ME_LOOK } from "../components/OfficeScene";
 import { lookFor, type Appearance } from "../components/appearance";
 import UserAdminCard from "../components/UserAdminCard";
+import TimeInput from "../components/TimeInput";
+import { parseTime } from "../utils/time";
 import { Card, CardTitle, PageHeader, inputClass } from "../components/ui";
 
 /**
- * 설정 — 오늘의 한마디, 계정 정보, 서비스 정보. 계정/인증 구조는 여기서 바꾸지 않는다.
+ * 설정 — 오늘의 한마디, 점심시간, 계정 정보, 서비스 정보. 계정/인증 구조는 여기서 바꾸지 않는다.
  */
 
 interface SettingsPageProps {
@@ -82,6 +84,105 @@ function DailyMessageEditor({ office }: { office: ReturnType<typeof useOfficePro
   );
 }
 
+/** 점심시간 — 이 시간 동안은 상태가 "점심시간"으로 보이고 근무 시간에서 빠진다. */
+function LunchEditor({ office }: { office: ReturnType<typeof useOfficeProfile> }) {
+  const [start, setStart] = useState(office.lunch?.start ?? "");
+  const [end, setEnd] = useState(office.lunch?.end ?? "");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  // 프로필이 늦게 도착하면 저장된 값으로 채운다.
+  useEffect(() => {
+    setStart(office.lunch?.start ?? "");
+    setEnd(office.lunch?.end ?? "");
+  }, [office.lunch?.start, office.lunch?.end]);
+
+  const save = async (next: { start: string; end: string } | null) => {
+    setMessage(null);
+    setState("saving");
+    try {
+      await office.saveLunch(next);
+      setState("saved");
+    } catch {
+      setState("error");
+    }
+  };
+
+  const submit = () => {
+    const s = parseTime(start);
+    const e = parseTime(end);
+    if (!s || !e) {
+      setMessage("시간은 00:00 ~ 23:59 사이로 입력해주세요. (예: 12:00)");
+      return;
+    }
+    if (e <= s) {
+      setMessage("끝나는 시간은 시작 시간보다 뒤여야 해요.");
+      return;
+    }
+    setStart(s);
+    setEnd(e);
+    save({ start: s, end: e });
+  };
+
+  const edit = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setState("idle");
+    setMessage(null);
+  };
+
+  return (
+    <Card>
+      <CardTitle>점심시간</CardTitle>
+      <p className="mb-3 text-sm text-gray-500">
+        출근 중 이 시간에는 상태가 '점심시간'으로 보이고, 근무 시간에서 빠져요.
+      </p>
+      <div className="grid max-w-sm grid-cols-2 gap-2">
+        <label className="block min-w-0">
+          <span className="mb-1 block text-xs font-semibold text-gray-500">시작</span>
+          <TimeInput value={start} onChange={edit(setStart)} placeholder="12:00" aria-label="점심 시작" />
+        </label>
+        <label className="block min-w-0">
+          <span className="mb-1 block text-xs font-semibold text-gray-500">끝</span>
+          <TimeInput value={end} onChange={edit(setEnd)} placeholder="13:00" aria-label="점심 끝" />
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          onClick={submit}
+          disabled={state === "saving" || !office.lunchAvailable}
+          className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:opacity-40"
+        >
+          저장
+        </button>
+        {office.lunch && (
+          <button
+            onClick={() => {
+              setStart("");
+              setEnd("");
+              save(null);
+            }}
+            disabled={state === "saving" || !office.lunchAvailable}
+            className="text-xs font-medium text-gray-400 hover:text-gray-600 disabled:opacity-40"
+          >
+            점심시간 사용 안 함
+          </button>
+        )}
+        {state === "saved" && (
+          <span className="text-xs font-semibold text-emerald-600">
+            {office.lunch ? "저장했어요" : "점심시간을 쓰지 않아요"}
+          </span>
+        )}
+        {state === "error" && <span className="text-xs text-rose-500">저장하지 못했어요</span>}
+        {message && <span className="text-xs text-rose-500">{message}</span>}
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">이미 퇴근한 지난 근무 기록은 바뀌지 않아요.</p>
+      {!office.lunchAvailable && (
+        <p className="mt-2 text-xs text-amber-700">DB 업데이트(0008 마이그레이션) 후 저장할 수 있어요.</p>
+      )}
+    </Card>
+  );
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-3 text-sm">
@@ -103,10 +204,11 @@ export default function SettingsPage({
 }: SettingsPageProps) {
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="설정" description="오늘의 한마디와 계정 정보를 관리합니다." />
+      <PageHeader title="설정" description="오늘의 한마디, 점심시간과 계정 정보를 관리합니다." />
 
       <div className="space-y-5">
         <DailyMessageEditor office={office} />
+        <LunchEditor office={office} />
 
         <Card>
           <CardTitle>내 계정</CardTitle>

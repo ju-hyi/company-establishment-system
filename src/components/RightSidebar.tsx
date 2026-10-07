@@ -5,6 +5,7 @@ import { LogIn, LogOut } from "lucide-react";
 import CharacterSpeech, { CHARACTER_IMAGES } from "./CharacterSpeech";
 import { Card, CardTitle } from "./ui";
 import { formatDuration, formatTime } from "../utils/helpers";
+import type { Lunch } from "../utils/lunch";
 import type { Task } from "../types";
 
 /**
@@ -15,6 +16,9 @@ import type { Task } from "../types";
 interface RightSidebarProps {
   tasks: Task[];
   isCheckedIn: boolean;
+  /** 출근 중이고 지금이 점심시간 */
+  onLunch: boolean;
+  lunch: Lunch | null;
   checkInAt: string | null;
   checkOutAt: string | null;
   elapsedSeconds: number;
@@ -65,6 +69,8 @@ function Donut({ done, doing, todo }: { done: number; doing: number; todo: numbe
 export default function RightSidebar({
   tasks,
   isCheckedIn,
+  onLunch,
+  lunch,
   checkInAt,
   checkOutAt,
   elapsedSeconds,
@@ -135,8 +141,12 @@ export default function RightSidebar({
           </div>
           <div className="flex justify-between">
             <dt className="text-gray-500">상태</dt>
-            <dd className={`font-semibold ${isCheckedIn ? "text-emerald-600" : "text-gray-500"}`}>
-              {isCheckedIn
+            <dd
+              className={`font-semibold ${onLunch ? "text-amber-600" : isCheckedIn ? "text-emerald-600" : "text-gray-500"}`}
+            >
+              {onLunch
+                ? `점심시간 (~${lunch?.end})`
+                : isCheckedIn
                 ? "근무 중"
                 : checkOutAt
                   ? `퇴근 (${formatTime(checkOutAt)})`
@@ -144,7 +154,10 @@ export default function RightSidebar({
             </dd>
           </div>
           <div className="flex items-baseline justify-between border-t border-dashed border-[#efe6df] pt-2">
-            <dt className="text-gray-500">경과 시간</dt>
+            <dt className="text-gray-500">
+              경과 시간
+              {lunch && <span className="block text-[10px] text-gray-400">점심 {lunch.start}~{lunch.end} 제외</span>}
+            </dt>
             <dd className="font-mono text-2xl font-bold text-rose-500">{formatDuration(elapsedSeconds)}</dd>
           </div>
         </dl>

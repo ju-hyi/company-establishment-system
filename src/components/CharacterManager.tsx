@@ -23,11 +23,17 @@ const STATUS_OPTIONS = Object.keys(STATUS_META) as StaffStatus[];
 type Status = { label: string; dot: string };
 
 /** 내 캐릭터 상태 — 출퇴근 · 지금 하는 일에서 자동으로 정한다. */
-export function myStatusOf(activity: ActivityType | null, isCheckedIn: boolean, leaving = false): Status {
+export function myStatusOf(
+  activity: ActivityType | null,
+  isCheckedIn: boolean,
+  leaving = false,
+  onLunch = false
+): Status {
   if (activity === "study") return STATUS_META.studying;
   if (activity === "exercise") return { label: "운동 중", dot: "bg-orange-400" };
   if (activity === "break") return STATUS_META.resting;
   if (activity === "personal") return STATUS_META.working;
+  if (onLunch) return { label: "점심시간", dot: "bg-amber-500" };
   if (leaving) return STATUS_META.moving;
   return isCheckedIn ? STATUS_META.working : STATUS_META.away;
 }

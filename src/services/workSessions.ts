@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { todayKey } from "../utils/helpers";
+import { workSecondsBetween, type Lunch } from "../utils/lunch";
 import type { WorkSession } from "../types";
 
 export async function getOpenSession(userId: string): Promise<WorkSession | null> {
@@ -31,11 +32,10 @@ export async function checkIn(userId: string): Promise<WorkSession> {
   return data;
 }
 
-export async function checkOut(session: WorkSession): Promise<WorkSession> {
+/** 퇴근 — 근무 시간은 출근~퇴근에서 점심시간과 겹친 만큼을 뺀 값으로 저장한다. */
+export async function checkOut(session: WorkSession, lunch: Lunch | null): Promise<WorkSession> {
   const endedAt = new Date();
-  const durationSeconds = Math.floor(
-    (endedAt.getTime() - new Date(session.check_in_at).getTime()) / 1000
-  );
+  const durationSeconds = workSecondsBetween(session.check_in_at, endedAt.getTime(), lunch);
 
   const { data, error } = await supabase
     .from("work_sessions")

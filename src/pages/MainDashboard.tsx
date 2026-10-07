@@ -48,11 +48,11 @@ export default function MainDashboard({
 
   // 모든 페이지가 같은 데이터를 공유한다 — 관리 페이지에서 바꾼 내용이 대시보드에 바로 보인다.
   const tasks = useTasks(userId);
-  const work = useWorkSession(userId);
+  const office = useOfficeProfile(userId);
+  const work = useWorkSession(userId, office.lunch);
   const activities = useActivities(userId);
   const { stats } = useStats(userId, statsKey);
   const schedules = useSchedules(userId);
-  const office = useOfficeProfile(userId);
   // 캐릭터 꾸미기 값 — 맵 · 프로필 · 캐릭터 관리 카드가 같이 쓴다
   const appearance = resolveAppearance(office.characters[ME_ID]?.appearance);
 
@@ -111,7 +111,7 @@ export default function MainDashboard({
           <CharacterPage
             office={office}
             myName={name}
-            myStatus={myStatusOf(activities.activity?.type ?? null, work.isCheckedIn)}
+            myStatus={myStatusOf(activities.activity?.type ?? null, work.isCheckedIn, false, work.onLunch)}
             onBack={() => navigate("office")}
           />
         )}
