@@ -10,7 +10,7 @@ import type { Schedule } from "../types";
  */
 
 const SEOUL_OFFSET_HOURS = 9;
-const DEFAULT_MINUTES = 60; // 끝나는 시간이 없을 때 1시간짜리 일정으로 보낸다.
+const DEFAULT_MINUTES = 60; // 하루 일정에 끝나는 시간이 없으면 1시간짜리 일정으로 보낸다.
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -31,22 +31,33 @@ function toUtcStamp(date: string, hhmm: string, addMinutes = 0) {
   );
 }
 
+const nextDay = (date: string) => {
+  const [y, mo, d] = date.split("-").map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, d + 1));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+};
+
+/** 시작 시간은 시작일, 끝나는 시간은 종료일(없으면 시작일) 기준이다. */
 function rangeOf(s: Schedule): Range {
+  const lastDay = s.end_date && s.end_date > s.schedule_date ? s.end_date : s.schedule_date;
   const start = s.start_time ? parseTime(s.start_time) : null;
   if (!start) {
-    const [y, mo, d] = s.schedule_date.split("-").map(Number);
-    const next = new Date(Date.UTC(y, mo - 1, d + 1));
     return {
       allDay: true,
       start: s.schedule_date.replace(/-/g, ""),
-      end: `${next.getUTCFullYear()}${pad(next.getUTCMonth() + 1)}${pad(next.getUTCDate())}`,
+      end: nextDay(lastDay).replace(/-/g, ""), // 종일 일정의 끝은 마지막 날 다음 날(포함 안 됨)
     };
   }
   const end = s.end_time ? parseTime(s.end_time) : null;
+  const multiDay = lastDay !== s.schedule_date;
   return {
     allDay: false,
     start: toUtcStamp(s.schedule_date, start),
-    end: end && end > start ? toUtcStamp(s.schedule_date, end) : toUtcStamp(s.schedule_date, start, DEFAULT_MINUTES),
+    end: end && (multiDay || end > start)
+      ? toUtcStamp(lastDay, end)
+      : multiDay
+        ? toUtcStamp(nextDay(lastDay), "00:00") // 끝나는 시간이 없으면 마지막 날 하루가 끝날 때까지
+        : toUtcStamp(s.schedule_date, start, DEFAULT_MINUTES),
   };
 }
 

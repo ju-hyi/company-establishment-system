@@ -34,9 +34,14 @@ interface CalendarPageProps {
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const CATEGORIES = Object.keys(SCHEDULE_CATEGORY) as ScheduleCategory[];
 
+/** 일정의 마지막 날 — 종료일이 없으면 시작일 하루짜리 */
+const lastDayOf = (s: Schedule) => (s.end_date && s.end_date > s.schedule_date ? s.end_date : s.schedule_date);
+const shortDate = (key: string) => format(new Date(`${key}T00:00:00`), "M/d");
+
 const emptyForm = (date: string): ScheduleInput => ({
   title: "",
   schedule_date: date,
+  end_date: null,
   start_time: null,
   end_time: null,
   category: "work",
@@ -46,6 +51,7 @@ const emptyForm = (date: string): ScheduleInput => ({
 const fromSchedule = (s: Schedule): ScheduleInput => ({
   title: s.title,
   schedule_date: s.schedule_date,
+  end_date: s.end_date,
   start_time: displayTime(s.start_time) || null,
   end_time: displayTime(s.end_time) || null,
   category: s.category,
@@ -68,8 +74,13 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
     end: endOfWeek(endOfMonth(month)),
   });
 
+  // 여러 날 일정은 시작일부터 종료일까지 매일 칸에 보인다.
   const byDate = new Map<string, Schedule[]>();
-  schedules.forEach((s) => byDate.set(s.schedule_date, [...(byDate.get(s.schedule_date) ?? []), s]));
+  days.forEach((day) => {
+    const key = todayKey(day);
+    const items = schedules.filter((s) => s.schedule_date <= key && key <= lastDayOf(s));
+    if (items.length) byDate.set(key, items);
+  });
   const daySchedules = byDate.get(selected) ?? [];
 
   const holidays = holidayMap([...new Set(days.map((d) => d.getFullYear()))]);
@@ -79,7 +90,8 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
 
   const selectDate = (key: string) => {
     setSelected(key);
-    if (!editingId) setForm((f) => ({ ...f, schedule_date: key }));
+    if (!editingId)
+      setForm((f) => ({ ...f, schedule_date: key, end_date: f.end_date && f.end_date > key ? f.end_date : null }));
   };
 
   const resetForm = (date = selected) => {
@@ -113,11 +125,17 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
       setError("시간은 00:00 ~ 23:59 사이로 입력해주세요. (예: 09:30, 18:30)");
       return;
     }
-    if (start && end && end <= start) {
+    if (form.end_date && form.end_date < form.schedule_date) {
+      setError("종료일은 시작일과 같거나 뒤여야 해요.");
+      return;
+    }
+    // 종료일이 시작일과 같으면 하루 일정으로 저장한다.
+    const endDate = form.end_date && form.end_date > form.schedule_date ? form.end_date : null;
+    if (!endDate && start && end && end <= start) {
       setError("끝나는 시간은 시작 시간보다 뒤여야 해요.");
       return;
     }
-    const input = { ...form, start_time: start, end_time: end, memo: form.memo?.trim() || null };
+    const input = { ...form, end_date: endDate, start_time: start, end_time: end, memo: form.memo?.trim() || null };
     const ok = await run(() => (editingId ? update(editingId, input) : add(input)));
     if (ok) {
       const target = input.schedule_date;
@@ -227,7 +245,7 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                         key={s.id}
                         className={`block truncate rounded px-1 text-[10px] font-medium ${SCHEDULE_CATEGORY[s.category].tile} ${SCHEDULE_CATEGORY[s.category].text}`}
                       >
-                        {s.start_time ? `${displayTime(s.start_time)} ` : ""}
+                        {key === s.schedule_date && s.start_time ? `${displayTime(s.start_time)} ` : ""}
                         {s.title}
                       </span>
                     ))}
@@ -273,6 +291,16 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
               <ul className="space-y-2">
                 {daySchedules.map((s) => {
                   const cat = SCHEDULE_CATEGORY[s.category];
+                  const last = lastDayOf(s);
+                  const multiDay = last !== s.schedule_date;
+                  const timeLabel =
+                    selected === s.schedule_date
+                      ? s.start_time
+                        ? displayTime(s.start_time)
+                        : "종일"
+                      : selected === last && s.end_time
+                        ? `~${displayTime(s.end_time)}`
+                        : "종일";
                   return (
                     <li
                       key={s.id}
@@ -281,14 +309,16 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="w-11 shrink-0 font-mono text-sm font-semibold text-gray-700">
-                          {s.start_time ? displayTime(s.start_time) : "종일"}
+                        <span className="w-12 shrink-0 font-mono text-sm font-semibold text-gray-700">
+                          {timeLabel}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="break-words text-sm font-semibold text-gray-900">{s.title}</p>
                           <p className="mt-0.5 text-[11px] text-gray-500">
                             {cat.label}
-                            {s.end_time && ` · ~${displayTime(s.end_time)}`}
+                            {multiDay
+                              ? ` · ${shortDate(s.schedule_date)}${s.start_time ? ` ${displayTime(s.start_time)}` : ""} ~ ${shortDate(last)}${s.end_time ? ` ${displayTime(s.end_time)}` : ""}`
+                              : s.end_time && ` · ~${displayTime(s.end_time)}`}
                             {s.memo && ` · ${s.memo}`}
                           </p>
                         </div>
@@ -381,15 +411,38 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                 className={inputClass}
                 aria-label="일정 제목"
               />
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-gray-500">날짜</span>
-                <input
-                  type="date"
-                  value={form.schedule_date}
-                  onChange={(e) => setForm({ ...form, schedule_date: e.target.value })}
-                  className={inputClass}
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-xs font-semibold text-gray-500">시작일</span>
+                  <input
+                    type="date"
+                    value={form.schedule_date}
+                    onChange={(e) => setForm({ ...form, schedule_date: e.target.value })}
+                    className={inputClass}
+                  />
+                </label>
+                <div className="min-w-0">
+                  <span className="mb-1 flex items-center justify-between text-xs font-semibold text-gray-500">
+                    <label htmlFor="schedule-end-date">종료일 (선택)</label>
+                    {form.end_date && (
+                      <button
+                        onClick={() => setForm({ ...form, end_date: null })}
+                        className="text-[11px] font-medium text-gray-400 hover:text-gray-600"
+                      >
+                        지우기
+                      </button>
+                    )}
+                  </span>
+                  <input
+                    id="schedule-end-date"
+                    type="date"
+                    value={form.end_date ?? ""}
+                    min={form.schedule_date}
+                    onChange={(e) => setForm({ ...form, end_date: e.target.value || null })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-gray-500">시작 시간</span>

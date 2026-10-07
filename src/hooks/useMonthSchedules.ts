@@ -7,6 +7,7 @@ import type { Schedule, ScheduleCategory } from "../types";
 export interface ScheduleInput {
   title: string;
   schedule_date: string;
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   category: ScheduleCategory;
@@ -17,8 +18,9 @@ const byDateTime = (a: Schedule, b: Schedule) =>
   a.schedule_date.localeCompare(b.schedule_date) ||
   (a.start_time ?? "99").localeCompare(b.start_time ?? "99");
 
+// 여러 날 일정은 기간이 이 달과 조금이라도 겹치면 포함한다.
 const inRange = (s: Schedule, from: string, to: string) =>
-  s.schedule_date >= from && s.schedule_date <= to;
+  s.schedule_date <= to && (s.end_date ?? s.schedule_date) >= from;
 
 /** 캘린더 페이지용 — 한 달치 일정을 읽고 추가/수정/삭제한다. */
 export function useMonthSchedules(userId: string | null, month: Date) {

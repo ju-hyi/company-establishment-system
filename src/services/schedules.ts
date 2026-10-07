@@ -9,7 +9,8 @@ export async function listSchedulesByDate(
     .from("schedules")
     .select("*")
     .eq("user_id", userId)
-    .eq("schedule_date", date)
+    .lte("schedule_date", date)
+    .or(`end_date.gte.${date},and(end_date.is.null,schedule_date.eq.${date})`)
     .order("start_time", { ascending: true, nullsFirst: false });
 
   if (error) throw error;
@@ -25,8 +26,9 @@ export async function listSchedulesInRange(
     .from("schedules")
     .select("*")
     .eq("user_id", userId)
-    .gte("schedule_date", fromDate)
+    // 기간이 겹치는 일정: 시작일 <= toDate 이고 (종료일 또는 시작일) >= fromDate
     .lte("schedule_date", toDate)
+    .or(`end_date.gte.${fromDate},and(end_date.is.null,schedule_date.gte.${fromDate})`)
     .order("schedule_date", { ascending: true })
     .order("start_time", { ascending: true, nullsFirst: false });
 
@@ -39,6 +41,7 @@ export async function createSchedule(
   input: {
     title: string;
     schedule_date: string;
+    end_date?: string | null;
     start_time?: string | null;
     end_time?: string | null;
     category?: ScheduleCategory;
@@ -51,6 +54,7 @@ export async function createSchedule(
       user_id: userId,
       title: input.title,
       schedule_date: input.schedule_date,
+      end_date: input.end_date || null,
       start_time: input.start_time || null,
       end_time: input.end_time || null,
       category: input.category ?? "work",
@@ -66,7 +70,7 @@ export async function createSchedule(
 export async function updateSchedule(
   scheduleId: string,
   patch: Partial<
-    Pick<Schedule, "title" | "schedule_date" | "start_time" | "end_time" | "category" | "memo">
+    Pick<Schedule, "title" | "schedule_date" | "end_date" | "start_time" | "end_time" | "category" | "memo">
   >
 ): Promise<Schedule> {
   const { data, error } = await supabase

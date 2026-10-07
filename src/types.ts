@@ -94,6 +94,8 @@ export interface Schedule {
   title: string;
   category: ScheduleCategory;
   schedule_date: string;
+  /** 여러 날 일정의 마지막 날. null 이면 schedule_date 하루짜리 일정 */
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   memo: string | null;
