@@ -113,6 +113,7 @@ export const SCHEDULE_CATEGORY: Record<
   study: { label: "공부", tile: "bg-violet-50/80", bar: "border-violet-400", text: "text-violet-600", dot: "bg-violet-400" },
   exercise: { label: "운동", tile: "bg-emerald-50/80", bar: "border-emerald-400", text: "text-emerald-600", dot: "bg-emerald-400" },
   etc: { label: "기타", tile: "bg-sky-50/80", bar: "border-sky-400", text: "text-sky-600", dot: "bg-sky-400" },
+  heart: { label: "❤️", tile: "bg-red-50/80", bar: "border-red-500", text: "text-red-600", dot: "bg-red-500" },
 };
 
 export const inputClass =

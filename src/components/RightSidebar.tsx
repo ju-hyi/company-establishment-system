@@ -79,8 +79,6 @@ export default function RightSidebar({
     return () => clearInterval(interval);
   }, []);
 
-  const hour12 = now.getHours() % 12 || 12;
-
   // 진행률 — 기존과 같은 계산: 오늘 업무 중 완료 비율
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "completed").length;
@@ -104,9 +102,8 @@ export default function RightSidebar({
         </p>
         <div className="mt-1 flex items-baseline gap-1.5">
           <span className="text-[38px] font-extrabold leading-none tracking-tight text-gray-900 tabular-nums">
-            {String(hour12).padStart(2, "0")}:{format(now, "mm")}
+            {format(now, "HH:mm")}
           </span>
-          <span className="text-base font-bold text-gray-500">{now.getHours() < 12 ? "AM" : "PM"}</span>
           <span className="ml-auto font-mono text-xs text-gray-300">{format(now, "ss")}s</span>
         </div>
       </Card>

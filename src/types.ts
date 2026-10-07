@@ -3,7 +3,7 @@ export type TaskPriority = "low" | "normal" | "high" | "urgent";
 export type ActivityType = "study" | "exercise" | "break" | "personal";
 /** 업무 구분 — 메인 화면 왼쪽의 세 블럭에 대응한다. */
 export type TaskCategory = "work" | "personal" | "mx_instagram";
-export type ScheduleCategory = "work" | "personal" | "study" | "exercise" | "etc";
+export type ScheduleCategory = "work" | "personal" | "study" | "exercise" | "etc" | "heart";
 
 export interface Profile {
   id: string;

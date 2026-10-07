@@ -10,10 +10,14 @@ import {
   startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Download, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardTitle, Empty, PageHeader, SCHEDULE_CATEGORY, inputClass } from "../components/ui";
+import TimeInput from "../components/TimeInput";
 import { useMonthSchedules, type ScheduleInput } from "../hooks/useMonthSchedules";
 import { todayKey } from "../utils/helpers";
+import { displayTime, parseTime } from "../utils/time";
+import { HOLIDAY_YEARS, holidayMap } from "../utils/holidays";
+import { downloadIcs, googleCalendarUrl } from "../utils/calendarExport";
 import type { Schedule, ScheduleCategory } from "../types";
 
 /**
@@ -42,8 +46,8 @@ const emptyForm = (date: string): ScheduleInput => ({
 const fromSchedule = (s: Schedule): ScheduleInput => ({
   title: s.title,
   schedule_date: s.schedule_date,
-  start_time: s.start_time?.slice(0, 5) ?? null,
-  end_time: s.end_time?.slice(0, 5) ?? null,
+  start_time: displayTime(s.start_time) || null,
+  end_time: displayTime(s.end_time) || null,
   category: s.category,
   memo: s.memo,
 });
@@ -55,6 +59,7 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
   const [form, setForm] = useState<ScheduleInput>(() => emptyForm(today));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exportId, setExportId] = useState<string | null>(null);
 
   const { schedules, loading, add, update, remove } = useMonthSchedules(userId, month);
 
@@ -66,6 +71,11 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
   const byDate = new Map<string, Schedule[]>();
   schedules.forEach((s) => byDate.set(s.schedule_date, [...(byDate.get(s.schedule_date) ?? []), s]));
   const daySchedules = byDate.get(selected) ?? [];
+
+  const holidays = holidayMap([...new Set(days.map((d) => d.getFullYear()))]);
+  const holidayName = (key: string) => holidays.get(key)?.join(" · ");
+  const selectedHoliday = holidayName(selected);
+  const noHolidayData = !HOLIDAY_YEARS.includes(month.getFullYear());
 
   const selectDate = (key: string) => {
     setSelected(key);
@@ -84,6 +94,11 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
       onChanged();
       return true;
     } catch (e) {
+      const message = (e as { message?: string } | null)?.message ?? "";
+      if (message.includes("schedules_category_check")) {
+        setError("❤️ 분류는 DB 설정(0006 마이그레이션) 후에 저장할 수 있어요.");
+        return false;
+      }
       setError(e instanceof Error ? e.message : "저장하지 못했어요. 잠시 후 다시 시도해주세요.");
       return false;
     }
@@ -91,11 +106,18 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
 
   const submit = async () => {
     if (!form.title.trim() || !form.schedule_date) return;
-    if (form.start_time && form.end_time && form.end_time <= form.start_time) {
+    // 시간은 24시간제 HH:mm 으로 저장한다. 비어 있으면 종일 일정.
+    const start = form.start_time?.trim() ? parseTime(form.start_time) : null;
+    const end = form.end_time?.trim() ? parseTime(form.end_time) : null;
+    if ((form.start_time?.trim() && !start) || (form.end_time?.trim() && !end)) {
+      setError("시간은 00:00 ~ 23:59 사이로 입력해주세요. (예: 09:30, 18:30)");
+      return;
+    }
+    if (start && end && end <= start) {
       setError("끝나는 시간은 시작 시간보다 뒤여야 해요.");
       return;
     }
-    const input = { ...form, memo: form.memo?.trim() || null };
+    const input = { ...form, start_time: start, end_time: end, memo: form.memo?.trim() || null };
     const ok = await run(() => (editingId ? update(editingId, input) : add(input)));
     if (ok) {
       const target = input.schedule_date;
@@ -170,9 +192,11 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
               const isSelected = key === selected;
               const isToday = key === today;
               const dow = day.getDay();
+              const holiday = holidayName(key);
               return (
                 <button
                   key={key}
+                  title={holiday}
                   onClick={() => {
                     if (!inMonth) goMonth(day);
                     selectDate(key);
@@ -185,7 +209,7 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                     className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
                       isToday
                         ? "bg-rose-500 text-white"
-                        : dow === 0
+                        : dow === 0 || holiday
                           ? "text-rose-400"
                           : dow === 6
                             ? "text-blue-400"
@@ -195,12 +219,15 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                     {day.getDate()}
                   </span>
                   <span className="hidden space-y-0.5 sm:block">
+                    {holiday && (
+                      <span className="block truncate px-1 text-[10px] font-medium text-rose-400">{holiday}</span>
+                    )}
                     {items.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
                         className={`block truncate rounded px-1 text-[10px] font-medium ${SCHEDULE_CATEGORY[s.category].tile} ${SCHEDULE_CATEGORY[s.category].text}`}
                       >
-                        {s.start_time ? `${s.start_time.slice(0, 5)} ` : ""}
+                        {s.start_time ? `${displayTime(s.start_time)} ` : ""}
                         {s.title}
                       </span>
                     ))}
@@ -219,6 +246,11 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
               );
             })}
           </div>
+          {noHolidayData && (
+            <p className="mt-3 text-[11px] text-gray-400">
+              {month.getFullYear()}년 공휴일 정보는 아직 등록되지 않아 표시하지 않아요.
+            </p>
+          )}
         </Card>
 
         <div className="space-y-5">
@@ -228,6 +260,11 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
               {format(new Date(`${selected}T00:00:00`), "M월 d일 (EEE)", { locale: ko })}
               {selected === today && (
                 <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-500">오늘</span>
+              )}
+              {selectedHoliday && (
+                <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-400">
+                  {selectedHoliday}
+                </span>
               )}
             </CardTitle>
             {daySchedules.length === 0 ? (
@@ -239,44 +276,81 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
                   return (
                     <li
                       key={s.id}
-                      className={`flex items-start gap-3 rounded-xl border-l-[3px] px-3 py-2.5 ${cat.tile} ${cat.bar} ${
+                      className={`rounded-xl border-l-[3px] px-3 py-2.5 ${cat.tile} ${cat.bar} ${
                         editingId === s.id ? "ring-2 ring-rose-200" : ""
                       }`}
                     >
-                      <span className="w-11 shrink-0 font-mono text-sm font-semibold text-gray-700">
-                        {s.start_time ? s.start_time.slice(0, 5) : "종일"}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm font-semibold text-gray-900">{s.title}</p>
-                        <p className="mt-0.5 text-[11px] text-gray-500">
-                          {cat.label}
-                          {s.end_time && ` · ~${s.end_time.slice(0, 5)}`}
-                          {s.memo && ` · ${s.memo}`}
-                        </p>
+                      <div className="flex items-start gap-3">
+                        <span className="w-11 shrink-0 font-mono text-sm font-semibold text-gray-700">
+                          {s.start_time ? displayTime(s.start_time) : "종일"}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-sm font-semibold text-gray-900">{s.title}</p>
+                          <p className="mt-0.5 text-[11px] text-gray-500">
+                            {cat.label}
+                            {s.end_time && ` · ~${displayTime(s.end_time)}`}
+                            {s.memo && ` · ${s.memo}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setExportId(exportId === s.id ? null : s.id)}
+                          className={`rounded-md p-1 hover:bg-white hover:text-gray-700 ${
+                            exportId === s.id ? "bg-white text-gray-700" : "text-gray-400"
+                          }`}
+                          aria-label="캘린더 앱에 추가"
+                          aria-expanded={exportId === s.id}
+                          title="캘린더 앱에 추가"
+                        >
+                          <CalendarPlus size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(s.id);
+                            setForm(fromSchedule(s));
+                            setError(null);
+                          }}
+                          className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-gray-700"
+                          aria-label="일정 수정"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!window.confirm(`'${s.title}' 일정을 삭제할까요?`)) return;
+                            run(() => remove(s.id)).then(() => {
+                              if (editingId === s.id) resetForm();
+                            });
+                          }}
+                          className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-rose-500"
+                          aria-label="일정 삭제"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          setEditingId(s.id);
-                          setForm(fromSchedule(s));
-                          setError(null);
-                        }}
-                        className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-gray-700"
-                        aria-label="일정 수정"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!window.confirm(`'${s.title}' 일정을 삭제할까요?`)) return;
-                          run(() => remove(s.id)).then(() => {
-                            if (editingId === s.id) resetForm();
-                          });
-                        }}
-                        className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-rose-500"
-                        aria-label="일정 삭제"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {exportId === s.id && (
+                        <div className="mt-2 border-t border-black/5 pt-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              onClick={() => downloadIcs(s)}
+                              className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50"
+                            >
+                              <Download size={12} /> 캘린더 파일(.ics)
+                            </button>
+                            <a
+                              href={googleCalendarUrl(s)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50"
+                            >
+                              <ExternalLink size={12} /> Google 캘린더
+                            </a>
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">
+                            .ics 파일을 열면 iPhone · Mac 캘린더, Outlook 등에 추가할 수 있어요.
+                            Google 캘린더는 열린 화면에서 저장해야 추가돼요.
+                          </p>
+                        </div>
+                      )}
                     </li>
                   );
                 })}
@@ -319,20 +393,19 @@ export default function CalendarPage({ userId, onChanged }: CalendarPageProps) {
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-gray-500">시작 시간</span>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={form.start_time ?? ""}
-                    onChange={(e) => setForm({ ...form, start_time: e.target.value || null })}
-                    className={inputClass}
+                    onChange={(v) => setForm((f) => ({ ...f, start_time: v || null }))}
+                    aria-label="시작 시간"
                   />
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-gray-500">끝나는 시간</span>
-                  <input
-                    type="time"
+                  <TimeInput
                     value={form.end_time ?? ""}
-                    onChange={(e) => setForm({ ...form, end_time: e.target.value || null })}
-                    className={inputClass}
+                    onChange={(v) => setForm((f) => ({ ...f, end_time: v || null }))}
+                    placeholder="11:00"
+                    aria-label="끝나는 시간"
                   />
                 </label>
               </div>
